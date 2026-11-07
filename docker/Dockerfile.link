@@ -1,0 +1,15 @@
+# syntax=docker/dockerfile:1
+ARG BASE_IMAGE=ghcr.io/hkuds/deeptutor:1.7.1@sha256:4982ca6bf43b98431366b43d1fec674a63656db3fbe49ba18c674bb6f19196dd
+FROM ${BASE_IMAGE}
+
+ARG WHEEL_NAME
+ARG HOST_PACKAGE=/app
+
+COPY dist/${WHEEL_NAME} /tmp/wheels/${WHEEL_NAME}
+RUN set -eux; \
+    python -m pip install --no-cache-dir --no-deps /tmp/wheels/${WHEEL_NAME}; \
+    python -m deeptutor_link.cli server-check --host "${HOST_PACKAGE}"; \
+    python -m deeptutor_link.cli server-install --host "${HOST_PACKAGE}"; \
+    python -m deeptutor_link.cli server-check --host "${HOST_PACKAGE}"; \
+    python -c "import sys; from pathlib import Path; from deeptutor_link.installer import inspect_host; assert inspect_host(Path(sys.argv[1]))['patched']" "${HOST_PACKAGE}"; \
+    rm /tmp/wheels/${WHEEL_NAME}

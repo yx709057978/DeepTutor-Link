@@ -1,0 +1,16 @@
+# Minimal imports needed by pinned host auth, learning and source validation.
+PyYAML>=6
+loguru>=0.7
+jinja2>=3.1
+packaging>=24
+pydantic-settings>=2
+python-multipart>=0.0.6
+python-jose[cryptography]>=3.3
+bcrypt>=4
+python-dotenv>=1
+requests>=2
+aiohttp>=3
+tenacity>=8
+json-repair>=0.57
+markdown-it-py>=3,<5
+PyMuPDF>=1.24

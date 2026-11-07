@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "deeptutor-link"
+version = "0.2.0"
+description = "Connect AI assistants to existing DeepTutor materials and learning progress"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["pydantic>=2.10,<3"]
+license = "Apache-2.0"
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
+
+[project.optional-dependencies]
+server = ["fastapi>=0.115,<1"]
+test = ["fastapi>=0.115,<1", "httpx>=0.27,<1", "pytest>=8,<10", "pytest-asyncio>=0.24", "build>=1.2", "ruff>=0.11"]
+
+[project.scripts]
+deeptutor-link = "deeptutor_link.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+deeptutor_link = ["assets/*.json", "assets/*.py", "assets/skill/*.md", "assets/skill/scripts/*.py", "assets/skill/references/*.md"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]

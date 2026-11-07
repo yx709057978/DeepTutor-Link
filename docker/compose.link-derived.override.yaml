@@ -1,0 +1,4 @@
+services:
+  deeptutor:
+    image: ${DTC_LINK_IMAGE:?Set DTC_LINK_IMAGE to the reviewed derived image tag}
+    pull_policy: never
