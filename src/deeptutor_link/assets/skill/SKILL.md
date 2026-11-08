@@ -1,6 +1,6 @@
 ---
 name: deeptutor-link
-description: Connect an AI assistant to an existing DeepTutor, configure the connection, and guide role/topic/history selection with original materials and progress. Use for DeepTutor setup or 配置连接, and 开始学习/继续学习 in a DeepTutor context.
+description: Connect an AI assistant to an existing DeepTutor, configure or update the integration, and guide role/topic/history selection with original materials and progress. Use for DeepTutor setup, 配置连接/更新/升级, and 开始学习/继续学习 in a DeepTutor context.
 ---
 
 # DeepTutor-Link
@@ -21,6 +21,9 @@ If this copy came from a development repository and an installed copy exists at
 `$HOME/.agents/skills/deeptutor-link`, prefer that installed copy and its own
 script, references and setup guide. Do not mix versions or read the repository
 implementation to learn the client.
+For an explicit upgrade, use the selected target distribution's setup guide
+to update the installed copies; a healthy connection is not proof of an update.
+Return to the installed copy and its matching resources after verification.
 
 Before an unfamiliar command or operation, query its contract offline:
 

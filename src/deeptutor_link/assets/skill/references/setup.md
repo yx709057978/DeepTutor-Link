@@ -4,6 +4,7 @@
 先读当前脚本的 `--help` 和 `describe`，复用已有配置，只询问无法发现且会影响
 结果的信息。一次普通的“继续学习”使用 `resume`，不需要重新安装或初始化；
 只有独立的明确维护任务才研究实现。
+明确更新请求直接按[升级与恢复](#升级与恢复)执行，再回到验证步骤。
 
 ## 用户入口
 
@@ -20,7 +21,9 @@ Start 引导选择；全局安装后也可在其他合适的学习聊天中使�
 使用已经取得并审查的本地源码或 wheel，不假设 PyPI 已有可安装版本。
 仓库中的本文件和安装后的本文件是同一份发行资源。
 若仓库开发副本和已安装副本都存在，优先使用安装副本自身的脚本和发行资源，
-不混用版本。
+不混用版本。明确更新时例外：先识别已安装副本，再使用选定目标发行资源
+中的本指南执行“升级与恢复”；安装完成后回到新安装副本。不要拿目标版
+文档指挥旧脚本学习，也不要因旧版连接正常而跳过更新。
 
 ## 先确定已有环境
 
@@ -34,7 +37,8 @@ Start 引导选择；全局安装后也可在其他合适的学习聊天中使�
 2. 检查客户端是否已有 Skill，以及 `$HOME/.config/deeptutor-link/` 下
    是否已有配置。只读取连接字段，不把 Cookie、token 或密码放进输出。
    已有连接先运行 `doctor`；绑定了主题则再运行 `resume --new-chat`。正常时直接
-   沿用，跳过安装和 `initialize`。
+   沿用，跳过安装和 `initialize`。明确更新请求仍须比较目标发行资源与
+   已安装的服务端、Skill，按“升级与恢复”处理差异。
 3. 从已有配置或启动信息确定 API origin 和原网站 origin。找不到时请
    用户提供；浏览器地址不一定是 API 地址。origin 只含协议、主机和
    端口，不含路径、账号密码、query 或 fragment。
@@ -384,6 +388,123 @@ DeepTutor 对话模型和 embedding 均为按能力可选配置。AI 助手负�
 
 ## 升级与恢复
 
+### 更新入口与范围
+
+用户可以直接说“帮我更新 DeepTutor-Link，保留现有连接和学习进度”。
+把它作为维护任务执行，不要求用户了解两端安装。先确定本次目标：用户
+指定的版本/commit，或已核实远端后取得的仓库更新。不要只执行 `git pull`
+就报告升级完成。更新本扩展不同时升级 DeepTutor、模型、provider 或索引；
+目标发行资源不支持现有宿主时，保持现状并报告具体不兼容项。
+
+本项目尚未发布到 PyPI。使用已取得并审查的源码或 wheel。Git checkout
+先核对远端、分支和 `git status --short`；工作区干净且允许快进时才执行
+`git fetch origin`、`git pull --ff-only`。有本地修改或分叉时保留它们，
+不自动 stash、reset 或覆盖。ZIP 更新解压到新的目录，保留原目录。
+
+两端与仓库可能在不同机器上，分别确认安装位置和可用权限；没有服务端
+维护权限时可以准备客户端更新，但必须报告服务端尚待处理。沿用前文
+已经核实的路径变量，不把客户端路径当作远程服务端路径。
+
+### 更新前记录与备份
+
+1. 记录宿主实际解释器/包路径、扩展包版本、目标源码 commit 或 wheel
+   SHA-256、安装 Skill 的位置和完整文件清单。相同的 0.2.0 版本号可能
+   包含不同源码提交，必须比较实际发行文件；`server-check` 返回的补丁
+   标记和收据版本也不能替代扩展包版本。
+2. 用现有客户端只读运行 `doctor`；已绑定主题时运行 `context --limit 1`，
+   记录账号、工作区、主题、角色和 revision。保留原 API/web origin、
+   `token_env` 以及自定义 `--config` / `--credentials` / `--cache` 路径，
+   不打印凭据。检查网页 pending 与租约，妥善结束当前学习任务后再停服；
+   不取消其他客户端回合、不删锁。
+3. 在仓库和所有 Skill 发现目录之外建立权限 `700` 的私有备份目录，
+   保存原连接/凭据/缓存文件（如存在，权限 `600`）、完整旧 Skill、
+   安装收据、独立恢复脚本，以及原启动方式。不要把备份放进公共仓库
+   或 `.agents/skills`、`.codex/skills`，否则可能继续发现旧 Skill。
+4. 在变更前准备可重新安装的旧版 wheel 或精确旧源码及其构建条件，
+   Docker 则保留原镜像精确引用和 Compose override。仅记住 `0.2.0`
+   或 Git commit 不保证离线可回退。备份完成前不移动现有安装。
+
+先比较，再决定更新范围。Skill 文件与目标完全一致时保留；只有 Skill
+变化时不必重启服务端。服务端包变化时按下节处理；两端都变化时完成
+服务端验证后再替换 Skill，期间不继续学习。
+
+### 服务端源码或 wheel 更新
+
+维护期间按原方式停止 DeepTutor。先使用旧版扩展和原解释器检查、卸载
+已知旧补丁，确认 `patched=false` 后才替换 Python 包：
+
+```sh
+"$DTC_HOST_PYTHON" -m deeptutor_link.cli server-check --host "$DTC_HOST"
+"$DTC_HOST_PYTHON" -m deeptutor_link.cli server-uninstall --host "$DTC_HOST" --dry-run
+"$DTC_HOST_PYTHON" -m deeptutor_link.cli server-uninstall --host "$DTC_HOST"
+"$DTC_HOST_PYTHON" -m deeptutor_link.cli server-check --host "$DTC_HOST"
+```
+
+旧版卸载保留 `.deeptutor-link-recover.py`。确认旧补丁已卸载并且恢复脚本
+已备份后，将这份旧恢复脚本移到私有备份目录，供新版安装器生成匹配
+本次发行资源的脚本；不要移动、删除或替换固定 `.flock` 文件。旧包缺失
+时先用已保存的旧独立恢复脚本按下文恢复。任何源码/收据冲突都停止处理，
+不直接删除未知补丁或改指纹。
+
+随后在同一宿主环境安装选定的新源码：
+
+```sh
+"$DTC_HOST_PYTHON" -m pip install --upgrade --upgrade-strategy only-if-needed "${DTC_REPO}[server]"
+"$DTC_HOST_PYTHON" -m deeptutor_link.cli server-check --host "$DTC_HOST"
+"$DTC_HOST_PYTHON" -m deeptutor_link.cli server-install --host "$DTC_HOST" --dry-run
+"$DTC_HOST_PYTHON" -m deeptutor_link.cli server-install --host "$DTC_HOST"
+```
+
+wheel 安装用实际目标 wheel 路径替换源码参数，并先核实服务端依赖。uv
+环境使用 `uv pip install --python "$DTC_HOST_PYTHON" --reinstall-package deeptutor-link "${DTC_REPO}[server]"`，
+确保相同版本号下的源码变化也重新安装；只刷新本包，不批量刷新宿主依赖。
+不使用 `--force-reinstall` 批量重装宿主依赖。确认新包实际导入位置、
+`server-check` 的基线与完整补丁状态，再按原方式启动原服务。
+
+Docker 更新按“Docker 持久安装”构建新的持久派生镜像，使用不同的本地
+镜像标签并记录 digest；复用原挂载、端口、环境来源和 Compose project。
+切换前核对合并配置，保留可回退的旧镜像/override。不在运行中容器内
+执行 pip 或打补丁，也不执行 `down -v`。
+
+### 更新已安装 Skill
+
+`skill-install` 不会覆盖内容不同的文件。先比较目标完整 Skill 目录和
+已安装目录；如有本地自定义文件，保留并指出差异，不把它们自动拼入
+新脚本。需要保留的修改另行处理，不能将混合版本报告为正式安装。
+
+已完成私有备份后，将旧 `deeptutor-link` 目录整体移出 Skill 发现目录，
+再按“安装 AI 助手 Skill”安装完整新目录。复制到不存在的目标，防止
+`cp -R` 嵌套出第二层；不要只替换脚本而留下旧参考文档。服务端安装器
+必须来自本次选定发行资源；客户端没有 Python 包时直接复制目标版资源，
+无需为了更新 Skill 安装全局 CLI。
+
+保留私有连接目录，无须 `login`、`initialize`、`bind` 或重新选角色。
+需要时只为已过期凭据重新登录；账号/范围不符则停止，不改成另一个
+账号来通过检查。不将旧教学缓存当成本聊天已读协议，新聊天重新
+`resume --new-chat`。
+
+### 更新验收与回退
+
+使用新安装目录的脚本运行 `--help`、离线 `describe`、`doctor` 和
+`capabilities`；已绑定主题时再运行 `resume --new-chat`、
+`context --limit 1`。检查原网站和原健康接口仍正常，核对身份接口的
+`extension_version`、服务端实际包版本与目标资源，以及 Skill 完整文件
+是否一致。账号/工作区/主题绑定和角色选择应保留；并发期间 revision
+可以增加，不能拿备份旧状态覆盖当前学习库。配置和只读验收不写虚构作答。
+
+报告目标 commit/wheel、两端安装位置、已完成和未完成的更新、验证结果
+及私有备份位置。全部通过后新开聊天说“继续学习”，不要求学习聊天
+理解升级过程。只更新了仓库、尚未重启或只装好一端时，明确报告未完成。
+
+失败时保持维护状态：用当前包或本次安装保存的恢复脚本卸载新补丁，
+确认宿主恢复后，将本次恢复脚本另存到私有备份目录，再用已保留的
+旧源码/wheel 安装原包和原补丁；完整恢复旧 Skill。Docker 切回原镜像
+和原 override，保留数据挂载。不回滚、覆盖或清空学习库。连接配置
+本应未变，只有确认被本次操作修改且需要恢复时才还原相应私有备份。
+若无法确认补丁身份或宿主指纹，不继续启动/覆盖，报告具体冲突。
+
+### 旧名称迁移
+
 从旧名称 DeepTutor-Codex 迁移时，先检查旧全局/项目 Skill 和私有目录
 `$HOME/.config/deeptutor-codex/`。不自动覆盖已有新版配置，也不同时启用同名
 功能的新旧 Skill。原服务停止后，用旧环境的 `deeptutor-codex server-uninstall`
@@ -397,15 +518,7 @@ origin 和实际身份，再检查账号、工作区及主题。旧 `token_env` 
 旧配置与 Skill 的备份留在 skills 和公共仓库之外。新版安装器不会自动卸载旧
 补丁；遇到旧源码指纹就停止，不能改指纹强行通过。
 
-升级前记录当前版本、解释器、宿主真实路径和 Skill 位置。连接/凭据备份
-放在用户私有目录，保留权限 `600`；完整 Skill 备份放到 skills 目录外。
-不要备份到公共仓库，不修改学习库或迁移资料。
-
-停止原服务，在同一解释器更新扩展，再运行 `server-check`、
-`server-install --dry-run`、`server-install`，按原方式启动并重复只读验证。
-若不支持已有补丁或恢复脚本，停止并报告，不清理未知标记来绕过检查。
-Skill 安装器拒绝覆盖内容不同的发行文件；先将旧目录完整移至私有备份
-目录，再安装新 Skill。连接配置独立保留，无须重建索引或重新初始化。
+### 卸载与独立恢复
 
 卸载先停止原服务，卸补丁后才卸 Python 包：
 

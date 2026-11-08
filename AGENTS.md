@@ -11,11 +11,15 @@ Skill discovery, script execution and, for visual evidence, image viewing suppor
 Treat this checkout as a usable entry point before a global Skill is installed.
 Users do not need to name a Skill, read a guide or know CLI arguments.
 
-- For "帮我配置连接一下我的 deeptutor", installation, connection or recovery,
+- For "帮我配置连接一下我的 deeptutor", installation, connection, updates or recovery,
   read `src/deeptutor_link/assets/skill/references/setup.md` and carry out the
   applicable workflow. Discover the existing environment first; ask only for
   information or choices that cannot be established from it. Do not stop at
   displaying installation commands.
+  For an explicit update, follow its upgrade section even if the existing
+  connection is healthy. Updating this checkout alone does not update the
+  server package or installed Skill; compare the selected distribution with
+  both installed copies and preserve the private connection and learning data.
 - For "开始学习" or "继续学习", read
   `src/deeptutor_link/assets/skill/SKILL.md` and follow its guided start. If a
   working installed copy exists, use that copy's script. Otherwise use this
