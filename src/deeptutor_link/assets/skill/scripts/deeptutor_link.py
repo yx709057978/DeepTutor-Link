@@ -16,9 +16,27 @@ import urllib.request
 import uuid
 from pathlib import Path
 
+CLIENT_VERSION = "0.2.1"
+SUPPORTED_EXTENSION_VERSIONS = {"0.2.0", CLIENT_VERSION}
+
 
 class CommandError(ValueError):
     """A diagnostic that contains neither submitted content nor credentials."""
+
+
+def check_protocol(info):
+    if (
+        info.get("host_version") != "1.7.1"
+        or info.get("extension_version") not in SUPPORTED_EXTENSION_VERSIONS
+        or info.get("schema_version") != 1
+    ):
+        raise CommandError("Unsupported host/extension protocol. Check the selected release and update both installed copies through references/setup.md.")
+    return {
+        **info,
+        "client_version": CLIENT_VERSION,
+        "client_server_versions_match": info["extension_version"] == CLIENT_VERSION,
+        "pending_question_continuation_available": bool(info.get("capabilities", {}).get("pending_question_continuation")),
+    }
 
 
 def integer_range(minimum, maximum=None):
@@ -132,6 +150,9 @@ def http_error(exc):
     code = detail.get("code", "request_failed")
     if not isinstance(code, str) or not re.fullmatch(r"[a-z][a-z0-9_]{0,79}", code):
         code = "request_failed"
+    missing_continuation = exc.code == 404 and code == "request_failed" and urllib.parse.urlsplit(exc.url).path.endswith(("/pending-question", "/answer-pending-question"))
+    if missing_continuation:
+        code = "pending_continuation_unavailable"
     hint = {
         401: "Check authentication or log in again.",
         403: "Check access to the selected account, workspace and resource.",
@@ -140,6 +161,20 @@ def http_error(exc):
         413: "Reduce the request to at most 64 KiB.",
         422: "Check request fields and documented argument bounds.",
     }.get(exc.code, "Check server health with doctor.")
+    hint = {
+        "pending_interaction": "Run pending-question and continue the original question; do not create a replacement or require a website answer for maintenance.",
+        "pending_question_changed": "Read pending-question again and evaluate its current exact question and stored answer before submitting a new request.",
+        "stored_answer_mismatch": "Use the exact stored_answer from pending-question; do not replace a previously committed learner answer.",
+        "pending_group_unsupported": "The original grouped question is preserved. External continuation currently supports leaf questions only; do not skip or overwrite the group.",
+        "pending_visual_review_required": "The original visual question is preserved and requires a verified image review contract. Do not grade from text alone.",
+        "pending_options_unavailable": "Original option bodies are missing. Restore the original question options through a supported host workflow; do not guess them.",
+        "pending_answer_ambiguous": "Ask the learner to choose one unambiguous option from the original question.",
+        "pending_evidence_unavailable": "The original question evidence is missing or stale. Preserve it and diagnose selected sources; do not bypass PDF or visual gates.",
+        "pending_question_binding_required": "The original PDF question/key has no verified binding. Preserve it and use a supported original binding workflow; a lesson packet or unrelated quote is not enough.",
+        "pending_answer_revision_unavailable": "A revised answer requires answer_revision_allowed=true from a fresh pending-question read and revise_answer=true; finalized or merely committed answers stay protected.",
+        "pending_state_conflict": "The original host pending state is inconsistent. Preserve it and use the host reconciliation workflow; do not rewrite learning data.",
+        "pending_continuation_unavailable": "This installed server lacks pending continuation. Update the server and complete Skill to 0.2.1 through references/setup.md; preserve the original question and connection.",
+    }.get(code, hint)
     if code == "invalid_request" and isinstance(detail.get("errors"), list):
         fields = {"offset", "limit", "max_chars", "after_revision", "path", "filename",
                   "name_contains", "suffix", "query", "persona", "mode", "language",
@@ -1120,6 +1155,7 @@ def scrub_answers(value):
 
 def parser():
     p = argparse.ArgumentParser(description="DeepTutor-Link Skill client (stdlib only).")
+    p.add_argument("--version", action="version", version=CLIENT_VERSION)
     root = Path.home() / ".config/deeptutor-link"
     p.add_argument("--config", type=Path, default=root / "connection.json")
     p.add_argument("--credentials", type=Path, default=root / "credentials.json")
@@ -1139,7 +1175,7 @@ def parser():
             cmd.add_argument("--username", required=True)
     cmd = commands.add_parser("bind")
     cmd.add_argument("--topic", required=True)
-    for action in ("doctor", "records", "workspaces", "recover", "route", "catalog", "skills", "capabilities"):
+    for action in ("doctor", "records", "workspaces", "recover", "route", "catalog", "skills", "capabilities", "pending-question"):
         commands.add_parser(action)
     commands.add_parser("persona-list")
     cmd = commands.add_parser("persona-show")
@@ -1197,7 +1233,7 @@ def parser():
     cmd.add_argument("--source", required=True)
     cmd.add_argument("--query", required=True)
     cmd.add_argument("--top-k", type=integer_range(1, 8), default=5, help="Retrieved results, 1..8.")
-    for action in ("assess", "route-create", "route-preview", "route-commit"):
+    for action in ("assess", "answer-pending-question", "route-create", "route-preview", "route-commit"):
         cmd = commands.add_parser(action)
         cmd.add_argument("--file", required=True, help="JSON file or '-' for stdin.")
     cmd = commands.add_parser("tool")
@@ -1678,7 +1714,7 @@ CLI_CONTRACTS = {
     },
     "doctor": {
         "summary": "Verify protocol, scope, topic readiness and capability diagnostics.",
-        "response": "Identity, host readiness, runtime capabilities/skills and mutation_lease for a bound topic.",
+        "response": "Identity, host readiness, runtime capabilities/skills, pending and mutation_lease separately for a bound topic.",
         "success": "Exit 0 with the expected account/workspace; model configuration is not retrieval success.",
         "connection": "required",
         "binding": "Optional topic binding extends the diagnosis.",
@@ -1878,6 +1914,61 @@ CLI_CONTRACTS = {
         "model_dependency": "none; the AI assistant performs semantic evaluation.",
         "pending": "A web pending question or active lease must not be overridden.",
     },
+    "pending-question": {
+        "summary": "Read the original pending question without exposing its key or private evidence.",
+        "response": "topic_id, revision, question_id, objective_id, safe question/options, stored_answer when already answered, previous_assessment, answer_revision_allowed, state_fingerprint, continuation, pending and mutation_lease.",
+        "success": "Exit 0; present=false means no question. Check continuation.supported and its blocker before evaluating.",
+        "connection": "required",
+        "binding": "Selected original topic. This does not import session history.",
+        "writes_host_state": False,
+        "model_dependency": "none",
+        "pending": "A durable unanswered question permits this read; inspect the write lease separately.",
+        "reference": "references/workflows.md",
+    },
+    "answer-pending-question": {
+        "summary": "Write the assistant evaluation of the original pending leaf question through the host learning service.",
+        "input": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["request_id", "expected_revision", "question_id", "state_fingerprint", "learner_answer", "result", "confidence", "feedback"],
+            "properties": {
+                **{key: {
+                    {"min_length": "minLength", "max_length": "maxLength"}.get(field, field): value
+                    for field, value in ARGUMENT_CONTRACTS[key].items()
+                } for key in ("request_id", "expected_revision", "question_id", "learner_answer", "confidence", "feedback")},
+                "state_fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$", "source": "pending-question"},
+                "result": {"type": "string", "enum": ["correct", "partial", "incorrect", "ungraded"]},
+                "independent": {"type": "boolean", "default": True, "meaning": "False when the learner received hints or answer assistance; never removes stored host assistance."},
+                "revise_answer": {"type": "boolean", "default": False, "meaning": "Set true only for the learner's actual clarification when pending-question returns answer_revision_allowed=true; the host audits the prior answer and verdict."},
+                "source_ids": {"type": "array", "maxItems": 30, "items": {"type": "string", "minLength": 1, "maxLength": 200}, "default": []},
+                "evidence_quotes": {
+                    "type": "array", "maxItems": 12, "default": [],
+                    "items": {
+                        "type": "object", "additionalProperties": False,
+                        "required": ["source_id", "filename"],
+                        "properties": {
+                            "source_id": {"type": "string", "minLength": 1, "maxLength": 200},
+                            "filename": {"type": "string", "minLength": 1, "maxLength": 1000},
+                            "quote": {"type": "string", "maxLength": 1200, "default": ""},
+                            "source_index": {"type": ["integer", "null"], "minimum": 0, "maximum": 5, "default": None},
+                            "page_number": {"type": ["integer", "null"], "minimum": 1, "maximum": 10000, "default": None},
+                            "visual_observation": {"type": "string", "maxLength": 2000, "default": ""},
+                            "support_statement": {"type": "string", "maxLength": 2000, "default": ""},
+                        },
+                    },
+                },
+            },
+        },
+        "response": "Verdict, original question_id, request_id, revision, saved, progress_recorded, final, deduplicated and host_chat_model_used=false.",
+        "success": "saved=true records the real answer. Claim progress only when progress_recorded=true and final=true, then re-read context. An ungraded answer stays pending.",
+        "connection": "required",
+        "binding": "Original pending question_id, state_fingerprint and expected_revision from pending-question; evaluate the exact stored_answer when present.",
+        "writes_host_state": True,
+        "model_dependency": "none; the assistant evaluates against authorized original evidence.",
+        "pending": "Continues one exact original leaf; active/protected leases, groups, unverified visual evidence and stale state are refused.",
+        "retry": "Retry only the identical JSON/request_id; its receipt is durable. Changed evaluation needs a new UUID and fresh pending-question.",
+        "reference": "references/workflows.md",
+    },
     "recover": {
         "summary": "Recover only a matching orphan extension lease for the selected topic.",
         "response": "Recovery receipt and remaining lease state.",
@@ -1982,6 +2073,7 @@ def describe_index():
     return {
         "kind": "describe_index",
         "contract_version": 1,
+        "client_version": CLIENT_VERSION,
         "commands": commands,
         "operations": [
             {
@@ -2062,13 +2154,7 @@ def execute(a):
             },
             a.credentials,
         )
-        info = probe.call("GET", "/api/link/v1/identity")
-        if (
-            info.get("host_version") != "1.7.1"
-            or info.get("extension_version") != "0.2.0"
-            or info.get("schema_version") != 1
-        ):
-            raise ValueError("Unsupported host/extension protocol.")
+        info = check_protocol(probe.call("GET", "/api/link/v1/identity"))
         selected = {
             "url": origin(a.url),
             "web_url": origin(a.web_url or a.url),
@@ -2115,9 +2201,7 @@ def execute(a):
             "token_env": token_env,
         }
         probe = Client(probe_config, a.credentials)
-        info = probe.call("GET", "/api/link/v1/identity")
-        if info.get("host_version") != "1.7.1" or info.get("extension_version") != "0.2.0" or info.get("schema_version") != 1:
-            raise ValueError("Unsupported host/extension protocol.")
+        info = check_protocol(probe.call("GET", "/api/link/v1/identity"))
         account = a.account or info.get("account_id")
         workspace = info.get("workspace_id") if a.workspace is None else a.workspace
         if account != info.get("account_id"):
@@ -2166,9 +2250,7 @@ def execute(a):
         config = load(a.config)
     client = Client(config, a.credentials)
     if a.command in {"identity", "connect", "doctor"}:
-        info = client.call("GET", "/api/link/v1/identity")
-        if info.get("host_version") != "1.7.1" or info.get("extension_version") != "0.2.0" or info.get("schema_version") != 1:
-            raise ValueError("Unsupported host/extension protocol.")
+        info = check_protocol(client.call("GET", "/api/link/v1/identity"))
         if a.command == "identity":
             return info
         if (info["account_id"], info["workspace_id"]) != (
@@ -2178,6 +2260,7 @@ def execute(a):
         if config.get("topic_id"):
             topic = client.call("GET", client.topic_path("context"), params={"limit": 1})
             info["mutation_lease"] = topic.get("mutation_lease", {"status": "unknown"})
+            info["pending"] = topic.get("pending", {"present": None})
         if a.command == "connect":
             save(a.config, config)
         else:
@@ -2213,6 +2296,8 @@ def execute(a):
         return client.call("GET", "/api/link/v1/" + a.command)
     if a.command == "recover":
         return client.call("POST", client.topic_path("recover"), {})
+    if a.command == "pending-question":
+        return client.call("GET", client.topic_path("pending-question"))
     if a.command == "route":
         return client.call("GET", client.topic_path("route"))
     if a.command == "persona-list":
@@ -2346,9 +2431,9 @@ def execute(a):
             client.topic_path("retrieve"),
             {"objective_id": a.objective, "source_id": a.source, "query": a.query, "top_k": a.top_k},
         )
-    if a.command in {"assess", "route-create", "route-preview", "route-commit"}:
+    if a.command in {"assess", "answer-pending-question", "route-create", "route-preview", "route-commit"}:
         value = input_object(a.file)
-        path = {"assess": "assessments", "route-preview": "route/previews", "route-commit": "route/commits"}
+        path = {"assess": "assessments", "answer-pending-question": "answer-pending-question", "route-preview": "route/previews", "route-commit": "route/commits"}
         return client.call(
             "POST",
             "/api/link/v1/topics" if a.command == "route-create" else client.topic_path(path[a.command]),

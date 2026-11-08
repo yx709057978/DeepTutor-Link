@@ -5,7 +5,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 
 from deeptutor_link.server import build_router
 
@@ -88,7 +88,7 @@ def http_host(monkeypatch):
         )
     app = FastAPI()
     app.add_middleware(WorkspaceActivityMiddleware)
-    app.include_router(mastery_router, prefix="/api/mastery-paths")
+    app.include_router(mastery_router, prefix="/api/mastery-paths", dependencies=[Depends(auth_router.require_auth)])
     app.include_router(build_router())
     return app, accounts
 

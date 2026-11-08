@@ -15,6 +15,72 @@ def headers(account):
     }
 
 
+def test_http_original_pending_continues_in_original_website_store_without_llm(http_host, monkeypatch):
+    from deeptutor.learning.models import PendingQuestion
+    from deeptutor.learning.service import LearningService
+
+    app, (account, other) = http_host
+    question = PendingQuestion(
+        question_id="original-website-question",
+        knowledge_point_id="original-kp",
+        module_id="m",
+        prompt="Explain this original objective with an example.",
+        expected_answer="PRIVATE_HOST_KEY",
+    )
+    LearningService(account["store"]).register_question(
+        "same-topic-id", question, session_id="website-session", turn_id="website-turn"
+    )
+    before_other = other["store"].load("same-topic-id").model_dump(mode="json")
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("External pending continuation must not call the host LLM")
+
+    monkeypatch.setattr(LearningService, "grade_interaction_semantic", forbidden)
+    path = "/api/link/v1/topics/same-topic-id/"
+    with TestClient(app) as client:
+        assert client.get(path + "pending-question").status_code == 401
+        wrong = {**headers(account), "X-DeepTutor-Account": other["uid"]}
+        assert client.get(path + "pending-question", headers=wrong).status_code == 403
+        assert client.get(path + "pending-question", headers=headers(other)).json()["question"] is None
+        response = client.get(path + "pending-question", headers=headers(account))
+        assert response.status_code == 200, response.text
+        state = response.json()
+        assert "PRIVATE_HOST_KEY" not in response.text
+        assert state["continuation"]["supported"] is True
+        payload = {
+            "request_id": str(uuid4()),
+            "expected_revision": state["revision"],
+            "question_id": state["question_id"],
+            "state_fingerprint": state["state_fingerprint"],
+            "learner_answer": "The real synthetic learner explains the original objective.",
+            "result": "correct",
+            "confidence": 0.95,
+            "feedback": "The learner demonstrates the original concept with a valid explanation.",
+        }
+        assert client.post(path + "answer-pending-question", json=payload).status_code == 401
+        assert client.post(path + "answer-pending-question", headers=wrong, json=payload).status_code == 403
+        absent = client.post(path + "answer-pending-question", headers=headers(other), json=payload)
+        assert absent.status_code == 409, absent.text
+        saved = client.post(path + "answer-pending-question", headers=headers(account), json=payload)
+        assert saved.status_code == 200, saved.text
+        assert saved.json()["progress_recorded"] is True
+        assert saved.json()["host_chat_model_used"] is False
+        repeated = client.post(path + "answer-pending-question", headers=headers(account), json=payload)
+        assert repeated.status_code == 200 and repeated.json()["deduplicated"] is True
+        website = client.get(
+            "/api/mastery-paths/progress/same-topic-id",
+            headers=headers(account), params={"dt_workspace": account["workspace"]},
+        )
+        assert website.status_code == 200, website.text
+        progress = website.json()
+        assert progress["pending_question"] is None
+        assert progress["quiz_attempts"][0]["question_id"] == question.question_id
+        assert progress["quiz_attempts"][0]["user_answer"] == payload["learner_answer"]
+        assert len(progress["learning_evidence"]) == 1
+        assert progress["repetition_states"]["original-kp"]["review_count"] == 1
+        assert other["store"].load("same-topic-id").model_dump(mode="json") == before_other
+
+
 def test_http_query_validation_returns_bounds_without_submitted_content(http_host):
     app, (account, _) = http_host
     with TestClient(app) as client:
@@ -516,7 +582,9 @@ def test_native_mastery_status_removes_turn_answers_and_private_notes(http_host,
         )
         assert result.status_code == 200, result.text
         assert sentinel not in result.text
-        assert result.json()["pending"] == {"present": True, "action": "finish_in_web"}
+        assert result.json()["pending"]["present"] is True
+        assert result.json()["pending"]["action"] == "read_pending_question"
+        assert result.json()["pending"]["blocks_maintenance_by_itself"] is False
         assert result.json()["next"] == {
             "action": "answer_pending",
             "knowledge_point_id": "original-kp",

@@ -57,6 +57,7 @@ def test_distributed_skill_runs_without_source_or_global_cli(standalone):
     result = run("--help")
     assert result.returncode == 0, result.stderr
     assert "stdlib only" in result.stdout
+    assert run("--version").stdout.strip() == "0.2.1"
     assert not config.exists()
 
 
@@ -86,7 +87,7 @@ def test_describe_is_offline_and_matches_executable_contracts(standalone):
     run, config, _ = standalone
     index = json.loads(run("describe").stdout)
     assert index["kind"] == "describe_index"
-    assert {"resume", "context", "retrieve", "assess", "doctor"} <= {
+    assert {"resume", "context", "retrieve", "assess", "doctor", "pending-question", "answer-pending-question"} <= {
         row["name"] for row in index["commands"]
     }
     assert "call_mastery_tutor" in {row["name"] for row in index["operations"]}
@@ -119,6 +120,17 @@ def test_describe_is_offline_and_matches_executable_contracts(standalone):
     assert native["daily_path"] is False
     assert "confirm" in native["minimal_call"]["input"]
     assert "references/native-tools.md" in native["reference"]
+    from deeptutor_link.models import PendingAnswer
+
+    pending = json.loads(run("describe", "answer-pending-question").stdout)
+    schema = pending["execution"]["input"]
+    model = PendingAnswer.model_json_schema()
+    assert schema["required"] == model["required"]
+    for name, field in schema["properties"].items():
+        expected = model["properties"][name]
+        for key in ("type", "minimum", "maximum", "minLength", "maxLength", "pattern", "maxItems", "default", "enum"):
+            if key in field:
+                assert field[key] == expected.get(key, [] if key == "default" else None), (name, key)
     assert run("describe", "tool", "missing_operation").returncode != 0
     assert not config.exists()
 
@@ -189,6 +201,10 @@ def test_distributed_skill_connects_and_continues_using_http(standalone):
         assert value["objectives"][0]["id"] == "original-objective"
         assert value["web_url"].startswith("https://original-web.example/learning/mastery/")
         assert run("doctor").returncode == 0
+        diagnostic = json.loads(run("doctor").stdout)
+        assert diagnostic["client_version"] == "0.2.1"
+        assert diagnostic["client_server_versions_match"] is False
+        assert diagnostic["pending_question_continuation_available"] is False
         assert "synthetic-only-token" not in config.read_text()
         assert not credentials.exists()
         assert all(h.get("X-Deeptutor-Workspace") == "existing-workspace" for _, h in calls)
@@ -242,13 +258,18 @@ def test_distributed_skill_route_commands_use_bound_scope_and_stdin(standalone):
             result = run(command, "--file", "-", stdin=json.dumps(payload))
             assert result.returncode == 0, result.stderr
             assert "Private route name" not in result.stdout
+        assert run("pending-question").returncode == 0
+        result = run("answer-pending-question", "--file", "-", stdin=json.dumps(payload))
+        assert result.returncode == 0, result.stderr
         assert [(method, path) for method, path, _, _ in calls] == [
             ("GET", "/api/link/v1/topics/original%2Ftopic/route"),
             ("POST", "/api/link/v1/topics"),
             ("POST", "/api/link/v1/topics/original%2Ftopic/route/previews"),
             ("POST", "/api/link/v1/topics/original%2Ftopic/route/commits"),
+            ("GET", "/api/link/v1/topics/original%2Ftopic/pending-question"),
+            ("POST", "/api/link/v1/topics/original%2Ftopic/answer-pending-question"),
         ]
-        assert all(body == payload for _, _, body, _ in calls[1:])
+        assert all(body == payload for method, _, body, _ in calls if method == "POST")
         assert all(h["X-Deeptutor-Workspace"] == "original-workspace" for *_, h in calls)
         assert all(h["X-Deeptutor-Account"] == "original-user" for *_, h in calls)
         save(config, {k: v for k, v in json.loads(config.read_text()).items() if k != "topic_id"})

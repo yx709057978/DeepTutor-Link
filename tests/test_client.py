@@ -61,3 +61,13 @@ def test_http_diagnostics_use_safe_constraints_without_private_input(status, det
     message = str(http_error(error))
     assert expected in message
     assert "PRIVATE" not in message and "SECRET_INPUT" not in message
+
+
+def test_old_server_pending_endpoint_has_actionable_update_hint():
+    error = HTTPError(
+        "http://127.0.0.1/api/link/v1/topics/topic/pending-question", 404,
+        "Not Found", {}, BytesIO(b'{"detail":"Not Found"}'),
+    )
+    message = str(http_error(error))
+    assert "pending_continuation_unavailable" in message
+    assert "0.2.1" in message and "preserve" in message

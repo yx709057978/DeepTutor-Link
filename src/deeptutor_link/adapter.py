@@ -339,7 +339,7 @@ def context(store, path_id: str, workspace: str, offset: int = 0, limit: int = 4
                 row["available"] = False
         sources.append(row)
     step = policy.next_objective(progress)
-    pending = store.get_active_interaction(path_id)
+    from deeptutor_link.pending import pending_summary
     profile = progress.learner_profile
     return {
         "schema_version": 1,
@@ -367,10 +367,7 @@ def context(store, path_id: str, workspace: str, offset: int = 0, limit: int = 4
             v.text[:400]
             for v in list(profile.teaching_preferences.values() if profile else [])[:12]
         ],
-        "pending": {
-            "present": bool(pending or progress.pending_question),
-            "action": "finish_in_web" if pending or progress.pending_question else None,
-        },
+        "pending": pending_summary(store, path_id, progress),
         "mutation_lease": lease_state,
         "next": {
             "action": step.action,
@@ -410,7 +407,7 @@ def assess(store, path_id: str, request: Assessment, workspace: str) -> dict:
                 raise LearningConflictError(path_id, request.expected_revision, tx.base_revision)
             if tx.active_interaction() or tx.progress.pending_question:
                 raise BridgeError(
-                    "pending_interaction", "Finish the pending question in the original web UI."
+                    "pending_interaction", "Read pending-question and continue the original question instead of submitting a fresh assessment."
                 )
             topic = store.get_topic(path_id, progress=tx.progress)
             if topic and topic.metadata.status != "active":

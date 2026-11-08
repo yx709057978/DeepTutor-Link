@@ -27,7 +27,8 @@ def test_continuation_projects_allowlist_without_answers(host_store):
     )
     assert value["objectives"][0]["id"] == "concept-original"
     assert value["preferences"]["preferences"] == "Chinese examples"
-    assert value["pending"]["action"] == "finish_in_web"
+    assert value["pending"]["action"] == "read_pending_question"
+    assert value["pending"]["blocks_maintenance_by_itself"] is False
     assert value["next_offset"] == 1
     assert "dt_workspace=workspace-original" in value["web_url"]
 

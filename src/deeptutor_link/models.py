@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -44,6 +44,23 @@ class Retrieval(BaseModel):
     source_id: str = Field(min_length=1, max_length=200)
     query: str = Field(min_length=1, max_length=2000)
     top_k: int = Field(default=5, ge=1, le=8)
+
+
+class PendingAnswer(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+
+    request_id: str = Field(pattern=UUID_PATTERN)
+    expected_revision: int = Field(ge=0)
+    question_id: str = Field(min_length=1, max_length=200)
+    state_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    learner_answer: str = Field(min_length=1, max_length=8000)
+    result: Literal["correct", "partial", "incorrect", "ungraded"]
+    confidence: float = Field(ge=0, le=1)
+    feedback: str = Field(min_length=8, max_length=2000)
+    independent: bool = True
+    revise_answer: bool = False
+    source_ids: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(default_factory=list, max_length=30)
+    evidence_quotes: list[AssessmentEvidenceQuote] = Field(default_factory=list, max_length=12)
 
 
 class NativeTutorCall(BaseModel):

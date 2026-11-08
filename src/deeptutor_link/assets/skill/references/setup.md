@@ -1,10 +1,10 @@
 # AI 安装与配置指南
 
-当用户要求安装、连接、切换实例、升级或排查配置时，按本指南执行。
-先读当前脚本的 `--help` 和 `describe`，复用已有配置，只询问无法发现且会影响
-结果的信息。一次普通的“继续学习”使用 `resume`，不需要重新安装或初始化；
-只有独立的明确维护任务才研究实现。
-明确更新请求直接按[升级与恢复](#升级与恢复)执行，再回到验证步骤。
+本指南覆盖安装、连接、切换实例、升级和配置排查。先识别当前客户端版本，
+用 `--help` 查看命令，并在客户端支持时用 `describe` 读取参数和成功条件。
+接着发现已有配置和宿主环境，沿用有效连接，只询问本地与服务端都无法确定的选择。
+普通的“继续学习”读取 `SKILL.md` 并运行 `resume`；明确更新请求进入
+[升级与恢复](#升级与恢复)，完成后再执行验证流程。
 
 ## 用户入口
 
@@ -12,52 +12,52 @@
 
 > 帮我配置连接一下我的 deeptutor。
 
-根目录 `AGENTS.md` 将这类请求路由到本指南。负责配置的 AI 执行适用步骤，
-不把本指南或整套命令交还用户手动操作。用户无需先安装 Skill 或知道内部
+根目录 `AGENTS.md` 将这类请求路由到本指南。负责配置的 AI 读取环境、执行适用步骤，
+并在需要用户选择或安全输入时给出下一步。用户无需先安装 Skill 或知道内部
 ID。配置完成后，在同一项目新聊天说“开始学习”，按 `SKILL.md` 的 Guided
 Start 引导选择；全局安装后也可在其他合适的学习聊天中使用。
 
 源码已公开于 GitHub 仓库 `yx709057978/DeepTutor-Link`，尚未发布到 PyPI。
-使用已经取得并审查的本地源码或 wheel，不假设 PyPI 已有可安装版本。
+从已取得并审查的本地源码或 wheel 安装。
 仓库中的本文件和安装后的本文件是同一份发行资源。
-若仓库开发副本和已安装副本都存在，优先使用安装副本自身的脚本和发行资源，
-不混用版本。明确更新时例外：先识别已安装副本，再使用选定目标发行资源
-中的本指南执行“升级与恢复”；安装完成后回到新安装副本。不要拿目标版
-文档指挥旧脚本学习，也不要因旧版连接正常而跳过更新。
+若仓库开发副本和已安装副本都存在，日常操作使用安装副本自身的脚本和发行资源，
+保持版本一致。明确更新时先识别当前副本，再使用选定目标发行资源中的本指南
+执行“升级与恢复”；更新完成后切换到新安装副本继续操作。
 
 ## 先确定已有环境
 
-1. 检查本项目、用户提供的路径、已有启动信息和当前监听端口。可用
-   `command -v python3.11 python3.12 python3.13 uv docker` 确认工具，实际
-   运行候选解释器查看版本，不能假定 `python3` 就满足 3.11+。发现 Docker
-   时用 `docker ps` 与筛选后的 `docker inspect` 查看容器名、镜像、端口、
-   Compose 路径和数据挂载。不要输出整个容器环境变量或凭据。源码部署则
-   核实进程的解释器和实际导入包位置。根据已发现路径读取部署说明，不为
-   找地址遍历整个 Home、密钥目录或浏览器配置。
+1. 从本项目、用户提供的路径、已有启动信息和监听端口发现 DeepTutor。
+   用 `command -v python3.11 python3.12 python3.13 uv docker` 查看可用工具，
+   再运行候选解释器确认版本达到 3.11+。Docker 部署使用 `docker ps` 和筛选后的
+   `docker inspect` 读取容器名、镜像、端口、Compose 路径与数据挂载；日志和输出
+   只保留完成诊断所需的字段。源码部署核对服务进程的解释器和实际导入包位置。
+   发现范围限定在项目、用户提供的路径、已有启动信息和监听服务；按该路径读取部署说明与配置。
 2. 检查客户端是否已有 Skill，以及 `$HOME/.config/deeptutor-link/` 下
-   是否已有配置。只读取连接字段，不把 Cookie、token 或密码放进输出。
-   已有连接先运行 `doctor`；绑定了主题则再运行 `resume --new-chat`。正常时直接
-   沿用，跳过安装和 `initialize`。明确更新请求仍须比较目标发行资源与
-   已安装的服务端、Skill，按“升级与恢复”处理差异。
+   是否已有配置。输出连接字段和状态，Cookie、token 与密码留在本机。
+   已有连接运行 `doctor`；绑定主题后再运行 `resume --new-chat`。检查正常时沿用
+   当前连接，将安装和 `initialize` 留给缺少连接或范围变更的场景。明确更新请求
+   比较目标发行资源与已安装服务端、Skill，并按“升级与恢复”处理差异。
+   根据 `--help` 判断旧脚本是否支持 `describe`；旧版用自身列出的只读命令完成检查。
+   在本仓库配置时比较目标 Skill 与已安装文件，只记录不同或缺失的文件名。
+   分别报告连接状态和发行内容是否更新；用户已指定更新时直接继续对应步骤。
 3. 从已有配置或启动信息确定 API origin 和原网站 origin。找不到时请
    用户提供；浏览器地址不一定是 API 地址。origin 只含协议、主机和
    端口，不含路径、账号密码、query 或 fragment。
-4. 本版服务端支持 macOS/Linux、本地文件系统、Python 3.11+，以及
+4. 本版服务端运行于 macOS/Linux、本地文件系统、Python 3.11+，以及
    DeepTutor v1.7.1 / `f7aed0744c36c5afef16a4261c31ebee1208cac2`
    的已审查源码指纹。源码或可写 wheel 使用下方原解释器安装路径；Docker
-   使用持久派生镜像路径，不在运行中容器热补丁。Windows 服务端和
-   NFS/SMB 共享写入不在支持范围。版本名相同不代表指纹匹配。
-5. 没有配置时，先结合端口、进程或 Compose 找到候选 origin，以只读
-   `/api/auth/status`、`/health/ready` 和 `/api/link/v1/identity` 确认。原生
-   服务健康而扩展接口 404 表示可能尚未安装扩展，不能反复调用 discover
-   或把用户带进登录循环。多个实例时让用户按名称或地址选择。确实无法
-   发现时才询问地址或远程机器访问方式。
+   使用持久派生镜像路径；Windows 服务端和 NFS/SMB 共享写入需要单独适配。
+   通过源码指纹确认版本内容，版本名只作为初步识别。
+5. 没有配置时，结合端口、进程或 Compose 找到候选 origin，以只读
+   `/api/auth/status`、`/health/ready` 和 `/api/link/v1/identity` 确认宿主与扩展状态。
+   原生健康接口正常而扩展身份接口返回 404 时，先检查扩展安装位置和代理路由。
+   多个实例按名称或地址让用户选择；本地信息无法确定地址时，再询问 API 地址或远程访问方式。
 6. AI 助手端安装整个脚本型 Skill，并使用已验证的 Python 3.11+。Skill
    可安装在与 DeepTutor 服务端不同的电脑上。
 
-远程连接使用 HTTPS，或用户已有的 SSH 隧道加 localhost HTTP。不要关闭
-TLS 验证或把未认证服务开放到公网。若只有远程网站访问权，没有服务端
-终端权限，可先安装本机 Skill，并明确列出还需管理员执行的服务端步骤。
+远程连接使用 HTTPS，或用户已有的 SSH 隧道加 localhost HTTP，并保持 TLS
+证书验证开启。公网服务采用 DeepTutor 已配置的认证。只有远程网站访问权时，
+可先安装本机 Skill，再列出需由服务端管理员执行的扩展安装步骤。
 
 ## 安装服务端扩展
 
@@ -73,12 +73,11 @@ DTC_HOST_PYTHON='/absolute/path/to/original/venv/bin/python'
 "$DTC_HOST_PYTHON" -m pip show deeptutor-link
 ```
 
-`pip show` 找不到扩展包表示尚未安装。确认 `DTC_HOST` 对应原进程实际导入
-的宿主；它可指向源码根目录或 `site-packages/deeptutor`，应使用解析后的
-真实路径。不要补丁一个参考仓库却让服务继续运行另一份代码。
+`pip show` 找不到扩展包表示尚未安装。将 `DTC_HOST` 指向原进程实际导入的宿主，
+它可以是源码根目录或 `site-packages/deeptutor`；使用解析后的真实路径与运行进程核对。
 
-在用户授权的维护范围内，先按原启动方式停止服务，再安装扩展。安装器
-不负责停止或重启进程，不重新创建宿主环境，不安装另一份 DeepTutor。
+在用户授权的维护范围内，先按原启动方式停止服务，再安装扩展。服务停止、
+宿主环境管理和 DeepTutor 版本管理沿用原部署流程；安装器只处理扩展文件。
 
 ```sh
 "$DTC_HOST_PYTHON" -m pip install "${DTC_REPO}[server]"
@@ -87,54 +86,55 @@ DTC_HOST_PYTHON='/absolute/path/to/original/venv/bin/python'
 "$DTC_HOST_PYTHON" -m deeptutor_link.cli server-install --host "$DTC_HOST"
 ```
 
-先检查现有依赖，避免强制升级原宿主依赖。原环境由 uv 管理且没有 pip 时，
+安装前检查现有依赖，维持原宿主依赖版本。原环境由 uv 管理且没有 pip 时，
 沿用现有 uv，以 `uv pip install --python "$DTC_HOST_PYTHON" "${DTC_REPO}[server]"`
 代替 pip 安装；其他 CLI 命令仍使用同一个宿主解释器。若使用已构建 wheel，则以实际
 wheel 路径替换 pip 的本地源码参数，并保证原环境已有服务端依赖。
 `--dry-run` 仅预览宿主补丁；前面的 pip 安装仍会安装包。
 
 `server-check` 校验关键源码指纹，返回宿主版本、基线提交和补丁状态。
-安装成功应返回 `patched=true`；检查失败就停止，不改版本号、指纹清单
-或宿主源码来强行通过。安装器保存补丁收据及标准库独立恢复脚本，不
-修改学习库、资料、索引、账号或模型配置。重跑相同版本安装是安全的。
+安装完成以 `patched=true` 为成功判据。指纹不匹配时保留现场，核对支持版本和
+本地改动后选择兼容的发行资源。安装器保存补丁收据及标准库独立恢复脚本，
+只修改扩展安装所需文件；学习库、资料、索引、账号和模型配置保持原样。
+相同版本的安装可以安全重跑。
 
-按原方式启动 DeepTutor，确认原网站仍可打开，并检查
-`GET /api/link/v1/identity` 和后面的认证/连接流程。只装好本机 Skill
-不等于远程服务端已装好。Docker 部署使用下方持久派生镜像路径。只有远程
-网站访问权时，明确说明还需服务端权限，并给出已准备好的具体操作。
+按原方式启动 DeepTutor，确认原网站可打开，再检查
+`GET /api/link/v1/identity` 和认证/连接流程。本机 Skill 与服务端扩展分别验收；
+远程部署还需在服务端完成本节安装。Docker 部署使用下方持久派生镜像路径。
+缺少服务端权限时，提供已准备好的管理员操作步骤。
 
 ## Docker 持久安装
 
-先从容器的 Compose 标签、镜像和挂载确认原部署。记录原镜像的精确引用、
-Compose 文件、服务名、端口、环境文件及数据卷；不输出环境变量值，不删除卷。
+从容器的 Compose 标签、镜像和挂载确认原部署。记录原镜像的精确引用、
+Compose 文件、服务名、端口、环境文件及数据卷；检查结果只保留诊断所需的变量名与挂载信息，
+秘密值不进入输出，数据卷保持不变。
 固定官方基线是：
 
 ```text
 ghcr.io/hkuds/deeptutor:1.7.1@sha256:4982ca6bf43b98431366b43d1fec674a63656db3fbe49ba18c674bb6f19196dd
 ```
 
-已有镜像必须匹配受支持的 commit 和源码指纹。自定义镜像中的未知改动需要
-先核实，不能丢弃原依赖或用别的镜像覆盖。下面使用默认固定基线；构建工具
+选择与受支持 commit 和源码指纹匹配的镜像。自定义镜像先核实其改动和依赖，
+再确定兼容基线。下面使用默认固定基线；构建工具
 检查本地镜像标签，在派生层中安装 wheel 并执行同一 `server-check` 和
 `server-install`。构建机解释器要满足 Python 3.11+，支持 `venv` 和
 `ensurepip`。脚本自动建立临时构建环境，用其中的 pip 按 `pyproject.toml`
-安装构建依赖，结束后删除临时环境；不升级系统 Python 的 setuptools。
+   安装构建依赖，结束后删除临时环境；系统 Python 的 setuptools 保持原版本。
 构建依赖仍需按本机既有 pip 源或缓存策略取得。
 
 ```sh
 DTC_BUILD_PYTHON='/absolute/path/to/verified/python3.11-or-newer'
-DTC_IMAGE='deeptutor-link-local:1.7.1-ext-0.2.0'
+DTC_IMAGE='deeptutor-link-local:1.7.1-ext-0.2.1'
 "$DTC_BUILD_PYTHON" "$DTC_REPO/scripts/build_docker_extension.py" --tag "$DTC_IMAGE"
 ```
 
 本地没有默认基线镜像时，按原部署的联网策略取得上述精确引用后再构建。
-`--base` 可指定含 digest 的已审查基线，工具仍校验版本和 commit；不使用
-`latest`。构建只生成 wheel 和派生镜像，不切换运行容器。
+`--base` 可指定含 digest 的已审查基线，工具仍校验版本和 commit；基础镜像
+始终使用已审查的具体版本或 digest。构建只生成 wheel 和派生镜像，不切换运行容器。
 
-把 `docker/compose.link-derived.override.yaml` 复制到原部署目录中，改为
-原服务名，并将 image 设为本次实际构建标签。也可保留模板中的
-`DTC_LINK_IMAGE` 变量，但要在该部署的持久配置中保存，不能只在当前 AI
-进程临时 export。以下变量替换为发现的真实绝对路径和服务名：
+把 `docker/compose.link-derived.override.yaml` 复制到原部署目录，改为
+原服务名，并将 image 设为本次实际构建标签。模板中的 `DTC_LINK_IMAGE`
+也可继续使用，值应写入该部署的持久配置。以下变量替换为发现的真实绝对路径和服务名：
 
 ```sh
 DTC_COMPOSE='/absolute/path/to/original/docker-compose.yml'
@@ -145,25 +145,24 @@ docker compose -f "$DTC_COMPOSE" -f "$DTC_OVERRIDE" config --images
 docker compose -f "$DTC_COMPOSE" -f "$DTC_OVERRIDE" up -d --no-build --pull never "$DTC_SERVICE"
 ```
 
-使用原部署的 project name、工作目录和 env-file。执行切换前核对合并配置的
-挂载、端口、环境来源和 service 未改变，仅更新镜像；不要将含秘密的完整
-`compose config` 输出到聊天。已有 `build` 配置由 `--no-build` 避免触发。
-配置请求包含此维护操作时直接完成；仍在运行的学习任务需先妥善结束。
+使用原部署的 project name、工作目录和 env-file。切换前检查合并配置的挂载、
+端口、环境来源和 service，只把镜像变更带入部署；展示配置时筛除秘密值。
+`--no-build` 保留原 build 设置而不触发构建。先按“待答题与维护判断”确认活动回合，
+保留持久待答题，再执行切换。
 启动后先验证原健康接口和网站，再验证扩展身份接口及原主题只读状态。
 
-把后续启动方式记录到原部署说明：使用原 Compose 加这份 override；不要
-留下只有本次终端能运行的临时步骤。卸载时按原启动方式仅使用原 Compose
+把后续启动方式记录到原部署说明：使用原 Compose 加这份 override，确保维护后
+仍有持久可复用的启动命令。卸载时按原启动方式仅使用原 Compose
 恢复记录的原镜像，使用 `--no-build --pull never`，保留全部原数据卷。原
-Compose 本身已被修改过镜像时，先恢复保存的原引用。不要执行 `down -v`。
+Compose 本身已修改镜像时，先恢复保存的原引用。恢复时保留全部数据卷。
 客户端 Skill 的安装与连接按下文继续。
 
 ## 安装 AI 助手 Skill
 
-Codex 默认安装到 `$HOME/.agents/skills/`，供新聊天使用；用户明确要求仅当前
-项目使用时，改放该项目的 `.agents/skills/`。不要同时保留同名新旧副本。
-其他 AI 助手使用其实际支持的 Skill 目录，不能假定会读取 Codex 的路径。
-先确认它能加载 Skill 并执行 Python 脚本；PDF 视觉流程另需查看本地图片。
-目前没有为其他客户端提供已验证的安装适配，不把脚本可运行报告成完整支持。
+Codex 默认安装到 `$HOME/.agents/skills/`，供新聊天使用；仅当前项目使用时，
+安装到项目的 `.agents/skills/`。目标目录保留一个与目标发行资源一致的 Skill 副本。
+其他 AI 助手使用其实际支持的 Skill 目录，并先验证 Skill 加载、Python 脚本执行和本地图片查看能力。
+当前已有 Codex 验证流程；其他客户端需要按其 Skill 机制完成适配验证后再报告支持状态。
 在客户端终端先设置目标目录；若与服务端分开，`DTC_REPO` 要指向客户端
 已取得的源码目录，两台机器的 shell 变量不会自动同步。
 
@@ -178,8 +177,8 @@ DTC_SKILL_PARENT="$HOME/.agents/skills"
 "$DTC_HOST_PYTHON" -m deeptutor_link.cli skill-install --target "$DTC_SKILL_PARENT"
 ```
 
-客户端没有扩展包时，直接从已审查源码复制整个 Skill。先检查目标；仅在
-`$DTC_SKILL_PARENT/deeptutor-link` 尚不存在时执行复制，避免嵌套或覆盖：
+客户端没有扩展包时，直接从已审查源码复制整个 Skill。先检查
+`$DTC_SKILL_PARENT/deeptutor-link`；目标不存在时复制完整发行目录：
 
 ```sh
 mkdir -p "$DTC_SKILL_PARENT"
@@ -189,7 +188,7 @@ cp -R "$DTC_REPO/src/deeptutor_link/assets/skill" "$DTC_SKILL_PARENT/deeptutor-l
 复制应包含 `SKILL.md`、`scripts/deeptutor_link.py` 和本
 `references/setup.md`，并保留发行目录中的全部 `references/*.md`。目标已存在时
 先按“升级与恢复”处理。
-客户端不需要为了复制 Skill 而安装 Python 包。随后检查独立运行：
+复制 Skill 的客户端可以直接运行其标准库脚本，随后检查独立运行：
 
 ```sh
 DTC_SKILL="$DTC_SKILL_PARENT/deeptutor-link"
@@ -199,25 +198,25 @@ DTC_CLIENT_PYTHON='/absolute/path/to/verified/python3.11-or-newer'
 ```
 
 本文后续 `CLIENT` 表示上述 Python 加脚本绝对路径，执行时替换为实际命令。
-配置聊天可以直接读取本地 `SKILL.md` 继续，不要求用户为刷新技能列表中途
-换聊天。安装结束后告知用户在同一项目新开聊天说“开始学习”；根目录入口
-和已安装 Skill 都能引导。不要修改用户选定的 AI 助手 provider 或模型。
+配置聊天可直接读取本地 `SKILL.md` 继续，无需中途切换聊天。安装结束后，
+告知用户在同一项目新开聊天说“开始学习”；根目录入口和已安装 Skill 都可引导。
+连接流程沿用用户当前选定的 AI 助手 provider 和模型。
 
 ## 认证与选择主题
 
 1. 先用已有凭据执行 `discover`。需要判断认证状态时，只读请求宿主
    `GET /api/auth/status`，检查 `enabled` 和 `authenticated`。
    `enabled=false` 时跳过登录，使用接口返回的本地身份，不询问账号密码。
-2. `enabled=true` 且已有受支持的 Cookie/token 可用时，复用它们。否则
-   执行下面的 `login`，由用户在自己的交互终端隐藏输入原密码。若 AI
-   终端不能让用户安全输入，交给用户执行这一步后继续。不要让密码进入
-   聊天、参数、stdin 管道或日志；不要读取浏览器 Cookie 数据库。
-3. `discover` 只读，不写连接配置。展示返回的账号、工作区和主题名称，
-   复用用户已明确选择的项目；有多个候选才询问。内部 ID 从返回值取得。
+2. `enabled=true` 时复用可用的受支持 Cookie/token；缺少凭据时调用 `login`，
+   由用户在自己的交互终端隐藏输入原密码。若 AI 终端不支持安全输入，
+   让用户在本机完成这一步后继续。密码仅通过登录界面的隐藏输入提交；
+   聊天、命令参数、stdin 管道和日志均不承载密码；浏览器 Cookie 由用户通过 DeepTutor 正常登录管理。
+3. `discover` 读取账号、工作区和主题名称。复用用户已明确选择的项目；
+   有多个候选时请用户选择，并从接口返回值取得内部 ID。
 4. 用 `initialize` 验证并保存连接。首次配置省略 `--workspace` 接受宿主
    当前解析的工作区；同实例重配应沿用已验证选择。默认通用工作区可显式
    用 `--workspace ''`。其他工作区使用
-   `workspaces` 返回的实际 ID，不能用名称猜 ID。
+   `workspaces` 返回的实际 ID。
 
 ```sh
 CLIENT login --url API_ORIGIN --username ORIGINAL_USERNAME
@@ -230,25 +229,25 @@ CLIENT bind --topic TOPIC_ID
 `login` 仅在认证开启且需要登录时执行。`API_ORIGIN` 和 `WEB_ORIGIN`
 替换成已确认地址；`TOPIC_ID` 使用所选工作区内 `topics` 的返回值。
 `topics` 可用 `--offset` / `--limit` 分页，每页 1–50 项，offset 从 0 开始；
-按 `next_offset` 继续，不能把一页当完整清单。`context` 每页最多 80 项，
+按 `next_offset` 逐页读取完整清单。`context` 每页最多 80 项，
 历史命令每页最多 50 项，`skill-read` 每页最多 24000 字符，`retrieve` 每次最多
 返回 8 条。`CLIENT describe COMMAND` 不联网，可查类型、范围、默认值、最小调用、
-返回结构、成功判据、绑定范围和重试规则。参数错误先修正参数，不反复登录或
-运行 `doctor`。
+返回结构、成功判据、绑定范围和重试规则。参数错误时先按契约修正参数；凭据状态变化时
+再重新登录或运行 `doctor`。
 若已在默认工作区发现目标，可给 `initialize` 增加 `--topic TOPIC_ID`，
 省去独立绑定。原网站与 API 同 origin 时可省略 `--web-url`。
 
 切换工作区先保存原连接备份，再用 `initialize` 选择工作区并列出其主题。
-同工作区切换主题仅用 `bind`。已有正常配置不要反复 `initialize`。同一
+同工作区切换主题使用 `bind`。已有正常配置继续沿用；同一
 实例、账号和工作区重配时，省略的 topic、persona、模式和语言应保留；保存前
 校验原 topic 仍可访问。web origin 在同实例下沿用，token 环境变量名在相同
 连接账号下沿用。换实例、账号或工作区后重新选择学习绑定。确实要清除同范围
-的主题绑定可用 `initialize --clear-topic`，不要靠猜一个 ID 来消除连接错误。
+的主题绑定可用 `initialize --clear-topic`；连接异常先运行 `doctor`，再按返回身份和范围修复。
 
 ## 配置与凭据
 
 默认文件位于 `$HOME/.config/deeptutor-link/`，与源码及 Skill 分开存放。
-用 `initialize` / `bind` 写入经过验证的连接，不要求用户手填内部 ID。
+用 `initialize` / `bind` 写入经过验证的连接；工作区和主题 ID 采用 `discover`、`workspaces` 与 `topics` 返回的值。
 
 | `connection.json` 字段 | 含义 |
 | --- | --- |
@@ -269,9 +268,9 @@ Cookie，不保存密码。客户端优先使用 `token_env` 指定环境变量�
 诊断账号不符时先检查正在使用哪种凭据，不打印其内容。
 
 `teaching-protocol.json` 缓存已读到的 persona/Mastery section 和指纹。它也在
-同一私有配置目录中，要求权限 600 且不是符号链接。换账号、工作区、主题、角色
-模式或语言后旧缓存自动失效；`resume --new-chat` 表示新聊天首读，不能用磁盘缓存
-冒充本聊天已经读过。
+同一私有配置目录中，权限为 600 且使用普通文件。换账号、工作区、主题、角色
+模式或语言后旧缓存自动失效；`resume --new-chat` 读取当前聊天对应的新协议，
+磁盘缓存只作为客户端缓存使用。
 
 配置、凭据和教学缓存 JSON 均要求非符号链接、权限 `600`，写入脚本会设置权限。
 自定义路径使用全局参数，必须放在子命令之前，后续每次调用都带上：
@@ -280,9 +279,9 @@ Cookie，不保存密码。客户端优先使用 `token_env` 指定环境变量�
 CLIENT --config /absolute/private/connection.json --credentials /absolute/private/credentials.json doctor
 ```
 
-不要把凭据放进 Skill、源码仓库或示例配置。使用用户已有的安全环境注入
-token，不在命令行写 token 值。当前默认路径固定在 `Path.home()` 下，
-不会自动采用 `XDG_CONFIG_HOME`。
+连接配置只保存 token 的环境变量名；用户提供的 token 通过现有安全环境注入。
+凭据文件留在权限受限的私有配置目录，与 Skill 和源码仓库分开。当前默认路径固定在
+`Path.home()` 下，不自动采用 `XDG_CONFIG_HOME`。
 
 ## 验证与开始使用
 
@@ -302,15 +301,14 @@ CLIENT context --limit 1
 确认主题存在，`resume` 返回原目标 ID、进度、原网站链接和
 `teaching_protocol`。确认 `teaching_protocol.sections` 有 general、runtime_policy、
 loop.system、当前 mode 和 playbook；`operations` 只按 `available=true` 的映射执行。
-HTTP 成功或帮助信息能显示，不能单独证明配置完成。
+配置成功以实际身份、主题读取和对应 readiness 字段为依据；HTTP 成功或帮助信息只表示命令可达。
 
 连接验收与学习验收分别报告。身份、健康检查、主题列表和 `capabilities`
-通过，只证明连接及声明的能力可用；模型已配置不代表检索已成功。只有对
-选定资料实际调用 `retrieve` 成功，才报告该检索路径通过。测评写回要等
-用户真实作答、评估提交成功并重读原状态后才报告通过；配置阶段不为验证
-而伪造学习记录。
+确认连接及声明能力；资料检索路径以对选定资料实际调用 `retrieve` 成功为准。
+测评写回以用户真实作答、评估提交成功和原状态重读为准；配置阶段只做只读验收，
+学习记录从真实教学回合开始产生。
 
-如需角色，先列出并让用户明确选择；不要从最新网页会话猜测：
+如需角色，先列出可用角色，让用户按名称选择：
 
 ```sh
 CLIENT persona-list
@@ -326,14 +324,14 @@ CLIENT persona-restore --session EXACT_SESSION_ID
 CLIENT resume --new-chat
 ```
 
-`persona-restore` 只读取该已授权会话的 persona/mode/language 偏好，不改变原
-网页 session，也不读取或导入聊天正文。选择删除的角色时返回 `persona_missing`；
-Mastery prompt 包缺失或不兼容返回 `mastery_prompts_unavailable` /
-`mastery_prompts_incompatible`。这些情况如实报告并让用户修复或重新选择，
-不静默换成别的角色或提示包。
+`persona-restore` 读取该已授权会话的 persona/mode/language 偏好，并保持原
+网页 session 与聊天正文独立。选择已删除角色时返回 `persona_missing`；
+   Mastery prompt 包缺失或不兼容返回 `mastery_prompts_unavailable` /
+   `mastery_prompts_incompatible`。展示诊断结果，协助用户修复原资源或从可用角色中重新选择，
+   再读取协议。
 
-若主题有资料，用 `context.sources[].locator` 或授权文件列表取得真实
-KB/文件名，再做一次有界只读检查；不猜本地路径。例如：
+若主题有资料，用 `context.sources[].locator` 或授权文件列表取得 KB/文件名，
+再做一次有界只读检查。例如：
 
 ```sh
 CLIENT tool read_knowledge_file --file -
@@ -350,18 +348,24 @@ CLIENT tool read_knowledge_file --file -
 }
 ```
 
-把占位值替换为已授权真实引用。有 PDF/视觉限制时按当前 capabilities 和
-Skill 的证据流程诊断，普通文件片段读取不代表视觉证据已验证。无资料的
-目标型主题可跳过资料检查并说明原因。安装验收不提交虚构作答、测评或
-学习进度。向量检索仅在用户需要且已有索引/查询 embedding 可用时额外
-验证，不为了完成安装重建索引。
+把占位值替换为已授权真实引用。有 PDF/视觉要求时按当前 capabilities 和
+Skill 的证据流程逐页验证；普通文件片段读取只用于文本内容。无资料的
+目标型主题可跳过资料检查并说明原因。安装验收保持学习记录不变，只做连接和只读资料检查；
+向量检索仅在用户需要且已有索引/查询 embedding 可用时额外验证。索引重建作为单独的维护操作处理。
 
-DeepTutor 对话模型和 embedding 均为按能力可选配置。AI 助手负责日常
-教学与评价；没有宿主模型时按当前证据能力继续，不要求补齐 API key。
-宿主原生模型工具仍受各自依赖约束，不能承诺所有工具都自动回退到 AI 助手。
+DeepTutor 对话模型和 embedding 均按能力可选。AI 助手负责日常教学与评价；
+未配置宿主模型时，按可用资料证据继续。原生模型工具分别按自身依赖运行，
+需要宿主模型的能力在对应诊断中标明。
 
 完成后报告：服务端与 Skill 版本、安装位置、选定工作区/主题名称、
-实际验证的能力、未验证或受限的功能。不要报告密码、Cookie 或 token。
+实际验证的能力和仍待处理的功能。凭据值始终留在用户本地。
+分开说明“连接是否可用”和“已安装副本是否与目标发行资源一致”；
+`doctor` 的 `client_version` 和 `extension_version` 分别标识客户端和服务端，
+`client_server_versions_match=false` 表示两端版本不同。0.2.1 客户端可以
+诊断旧 0.2.0 服务；旧服务没有待答接续接口时，先更新两端，再重新读取原题并继续。
+接口返回 404 时，待答题仍按未完成状态保留。`pending_question_continuation_available` 是该接口
+的服务端声明，实际能力仍以原题读取和提交结果为准。
+服务端发行内容以实际文件核验结果为准；相同的 `0.2.0` 版本号也逐项核对文件内容。
 告诉用户在同一项目的新聊天说“开始学习”。按 `SKILL.md` 的 Guided Start
 展示角色、主题和接续选项，使用 API 返回的真实 ID 保存选择，再运行
 `resume --new-chat`。明确说“继续上次学习”时可沿用有效选择；用户不需要
@@ -374,59 +378,75 @@ DeepTutor 对话模型和 embedding 均为按能力可选配置。AI 助手负�
 | --- | --- |
 | `/api/link/v1/identity` 返回 404 | 核对 API origin、反向代理是否转发该路径、扩展是否装进实际运行环境，以及原服务是否重启 |
 | 401 或登录过期 | 先查 `/api/auth/status`；认证开启时更新原凭据，关闭时跳过登录 |
-| 403 或账号/工作区不一致 | 核实实际身份和 workspace；重新发现并显式选择，不绕过权限或 private-login-host 策略 |
-| 找不到主题 | 核实工作区并分页 `topics`，不要新建同名路线代替旧进度 |
-| unsupported/drifted source | 停止打补丁，报告具体文件；核实支持版本与用户改动，不强行改指纹 |
-| 配置权限错误 | 仅对确认的非符号链接配置/凭据文件设置 `chmod 600`，不递归改整个 Home |
-| DeepTutor connection failed | 检查服务、origin、HTTPS 证书、已有隧道和网络；客户端不跟随重定向、不使用系统 HTTP 代理 |
-| readiness 未通过 | 检查宿主原服务与日志，解决后重试；不要忽略健康检查或伪报已完成 |
-| `persona_missing` | 用 `persona-list` 重新选择，或 `persona-clear` 回到 Mastery baseline；不猜替代角色 |
-| `mastery_prompts_unavailable` / `mastery_prompts_incompatible` | 修复原 DeepTutor 安装/资源，不要用第二套硬编码教学库替代 |
-| 网站 persona 恢复失败 | 确认确切 session ID、账号和工作区；不要改网页偏好，也不要改用“最新聊天” |
-| 没有 embedding 或兼容索引 | 使用授权资料直读/字面搜索；单独说明向量检索不可用，不全局阻断无关能力 |
-| active/pending/protected lease | 等待或在原网站完成已有工作，刷新 context；不要取消网页 turn 或删除锁来通过安装验收 |
+| 403 或账号/工作区不一致 | 核实接口返回身份、工作区和资源范围，再通过 `discover` 重新选择；沿用 private-login-host 策略 |
+| 找不到主题 | 核实当前工作区并分页读取 `topics`，按原主题 ID 继续其既有进度 |
+| unsupported/drifted source | 记录具体文件，核对受支持版本与本地改动，再选择兼容发行资源 |
+| 配置权限错误 | 确认配置/凭据文件路径与类型，再对该文件设置 `chmod 600`；其他用户目录保持原权限 |
+| DeepTutor connection failed | 依次检查宿主服务、origin、HTTPS 证书、SSH 隧道和网络；按客户端的显式 origin 与代理策略发起请求 |
+| readiness 未通过 | 检查宿主健康状态和日志，修复原因后重跑 readiness 与 `doctor` |
+| `persona_missing` | 用 `persona-list` 选择当前可用角色，或由用户选择 `persona-clear` 回到 Mastery baseline |
+| `mastery_prompts_unavailable` / `mastery_prompts_incompatible` | 核实原 DeepTutor 安装与 prompt 资源版本，修复原资源后重新运行 `resume --new-chat` |
+| 网站 persona 恢复失败 | 用用户选定会话的精确 session ID、账号和工作区重新检查网页偏好 |
+| 没有 embedding 或兼容索引 | 使用授权资料直读/字面搜索，并单独报告向量检索状态；其他可用能力照常运行 |
+| 持久待答题，写入租约为空闲 | 保留原题，继续连接检查或有序维护；学习写入按对应命令的接续契约进行 |
+| 活动写入或 protected/unknown lease | 查询对应回合和运行状态，等待活动写入结束后再维护；锁文件由原服务管理，待答题沿学习流程保留 |
 
 ## 升级与恢复
 
 ### 更新入口与范围
 
 用户可以直接说“帮我更新 DeepTutor-Link，保留现有连接和学习进度”。
-把它作为维护任务执行，不要求用户了解两端安装。先确定本次目标：用户
-指定的版本/commit，或已核实远端后取得的仓库更新。不要只执行 `git pull`
-就报告升级完成。更新本扩展不同时升级 DeepTutor、模型、provider 或索引；
+把它作为维护任务执行，先确定本次目标：用户指定的版本/commit，或已核实远端后取得的仓库更新。
+把源码获取、服务端安装、Skill 安装和最终验收分别核实；本扩展更新保持 DeepTutor、模型、provider 和索引版本原样；
 目标发行资源不支持现有宿主时，保持现状并报告具体不兼容项。
 
-本项目尚未发布到 PyPI。使用已取得并审查的源码或 wheel。Git checkout
-先核对远端、分支和 `git status --short`；工作区干净且允许快进时才执行
-`git fetch origin`、`git pull --ff-only`。有本地修改或分叉时保留它们，
-不自动 stash、reset 或覆盖。ZIP 更新解压到新的目录，保留原目录。
+本项目尚未发布到 PyPI，使用已取得并审查的源码或 wheel。目标资源已经选定并取得时，
+核实其身份和完整性后直接按该版本执行。需要取得远端更新时，先核对远端、分支和
+`git status --short`；工作区干净且允许快进时执行 `git fetch origin` 和
+`git pull --ff-only`。存在本地修改或分叉时先保留现场，再选定隔离的新目录。ZIP 更新解压到新目录，原目录继续作为回退点。
 
-两端与仓库可能在不同机器上，分别确认安装位置和可用权限；没有服务端
-维护权限时可以准备客户端更新，但必须报告服务端尚待处理。沿用前文
-已经核实的路径变量，不把客户端路径当作远程服务端路径。
+仓库、服务端和客户端可能位于不同机器。分别记录安装位置、执行权限和维护负责人；
+沿用前文核实过的路径变量，并将客户端更新与服务端待办分开报告。
 
 ### 更新前记录与备份
 
 1. 记录宿主实际解释器/包路径、扩展包版本、目标源码 commit 或 wheel
    SHA-256、安装 Skill 的位置和完整文件清单。相同的 0.2.0 版本号可能
    包含不同源码提交，必须比较实际发行文件；`server-check` 返回的补丁
-   标记和收据版本也不能替代扩展包版本。
+   标记和收据版本用于识别补丁状态；扩展包版本以实际包元数据为准。
 2. 用现有客户端只读运行 `doctor`；已绑定主题时运行 `context --limit 1`，
    记录账号、工作区、主题、角色和 revision。保留原 API/web origin、
-   `token_env` 以及自定义 `--config` / `--credentials` / `--cache` 路径，
-   不打印凭据。检查网页 pending 与租约，妥善结束当前学习任务后再停服；
-   不取消其他客户端回合、不删锁。
+   `token_env` 以及自定义 `--config` / `--credentials` / `--cache` 路径；
+   凭据值留在本机。按下节区分持久待答与正在执行的回合；待答原样保留，
+   活动回合按其运行状态有序结束后再维护。
 3. 在仓库和所有 Skill 发现目录之外建立权限 `700` 的私有备份目录，
    保存原连接/凭据/缓存文件（如存在，权限 `600`）、完整旧 Skill、
-   安装收据、独立恢复脚本，以及原启动方式。不要把备份放进公共仓库
-   或 `.agents/skills`、`.codex/skills`，否则可能继续发现旧 Skill。
+   安装收据、独立恢复脚本，以及原启动方式。备份目录放在仓库和 Skill 发现路径之外，
+   让回退文件独立保存，旧 Skill 也不会参与发现。
 4. 在变更前准备可重新安装的旧版 wheel 或精确旧源码及其构建条件，
-   Docker 则保留原镜像精确引用和 Compose override。仅记住 `0.2.0`
-   或 Git commit 不保证离线可回退。备份完成前不移动现有安装。
+   Docker 则保留原镜像精确引用和 Compose override。版本号与 Git commit 用于识别版本，
+   可离线回退的资源由备份目录实际保存。完成备份后再切换现有安装。
 
-先比较，再决定更新范围。Skill 文件与目标完全一致时保留；只有 Skill
-变化时不必重启服务端。服务端包变化时按下节处理；两端都变化时完成
-服务端验证后再替换 Skill，期间不继续学习。
+先比较 Skill 和服务端包的实际文件，再确定更新范围。Skill 内容一致时沿用；
+只更新 Skill 时保持服务端运行。服务端包变化按下节维护；两端都更新时先完成
+服务端验收，再安装 Skill。
+
+### 待答题与维护判断
+
+`pending.present=true`、`next.action=answer_pending` 表示原题保存在学习流程中。
+旧版 `pending.action=finish_in_web` 同样表示网页学习步骤。维护判断分别读取
+`pending.present` 和 `mutation_lease.status`；Python 中用
+`context.get("pending", {}).get("present") is True` 判断是否存在待答题。
+
+先核实真正活动的回合/写入与租约。`extension_active` 表示扩展正在写入；
+`protected_lease` 关联网页或其他客户端，按对应回合确认。未知状态通过原服务的运行状态核实。
+已绑定主题的 `clear` 只表示该主题当前没有活动写入；服务级维护还需使用原服务提供的
+整体运行状态和有序停止方式。
+
+持久待答与活动写入分开处理：活动回合结束并具备有序停服条件后，保留题目、
+已提交答案和进度进行维护。重启后核对待答仍在，并记录本次维护是否改变 revision；
+并发产生的合法变化单独说明。连接验收沿用待答原状。活动写入通过具体句柄/状态跟进，
+持久待答由学习流程接续，不作为一个等待运行结束的任务轮询。
 
 ### 服务端源码或 wheel 更新
 
@@ -440,48 +460,47 @@ DeepTutor 对话模型和 embedding 均为按能力可选配置。AI 助手负�
 "$DTC_HOST_PYTHON" -m deeptutor_link.cli server-check --host "$DTC_HOST"
 ```
 
-旧版卸载保留 `.deeptutor-link-recover.py`。确认旧补丁已卸载并且恢复脚本
-已备份后，将这份旧恢复脚本移到私有备份目录，供新版安装器生成匹配
-本次发行资源的脚本；不要移动、删除或替换固定 `.flock` 文件。旧包缺失
-时先用已保存的旧独立恢复脚本按下文恢复。任何源码/收据冲突都停止处理，
-不直接删除未知补丁或改指纹。
+旧版卸载保留 `.deeptutor-link-recover.py`。将恢复脚本保存到私有备份目录，
+由新版安装器为本次发行资源生成匹配脚本。固定 `.flock` 文件由锁流程使用，
+更新期间保持原样。旧包缺失时使用已备份的独立恢复脚本。源码或收据冲突时，
+先记录冲突并核实补丁身份，再选择恢复或更新路径。
 
 随后在同一宿主环境安装选定的新源码：
 
 ```sh
 "$DTC_HOST_PYTHON" -m pip install --upgrade --upgrade-strategy only-if-needed "${DTC_REPO}[server]"
+"$DTC_HOST_PYTHON" -m pip install --force-reinstall --no-deps "$DTC_REPO"
 "$DTC_HOST_PYTHON" -m deeptutor_link.cli server-check --host "$DTC_HOST"
 "$DTC_HOST_PYTHON" -m deeptutor_link.cli server-install --host "$DTC_HOST" --dry-run
 "$DTC_HOST_PYTHON" -m deeptutor_link.cli server-install --host "$DTC_HOST"
 ```
 
-wheel 安装用实际目标 wheel 路径替换源码参数，并先核实服务端依赖。uv
+第一步补齐需要的服务端依赖；第二步只重装本包，保证相同版本号但内容
+不同的发行资源也被替换。wheel 安装用实际目标 wheel 路径替换两步中的
+源码参数，并先核实服务端依赖。uv
 环境使用 `uv pip install --python "$DTC_HOST_PYTHON" --reinstall-package deeptutor-link "${DTC_REPO}[server]"`，
 确保相同版本号下的源码变化也重新安装；只刷新本包，不批量刷新宿主依赖。
-不使用 `--force-reinstall` 批量重装宿主依赖。确认新包实际导入位置、
+`--force-reinstall` 必须和 `--no-deps` 一起用于本包。确认新包实际导入位置、
 `server-check` 的基线与完整补丁状态，再按原方式启动原服务。
 
-Docker 更新按“Docker 持久安装”构建新的持久派生镜像，使用不同的本地
+Docker 更新按“Docker 持久安装”构建新的持久派生镜像，使用新的本地
 镜像标签并记录 digest；复用原挂载、端口、环境来源和 Compose project。
-切换前核对合并配置，保留可回退的旧镜像/override。不在运行中容器内
-执行 pip 或打补丁，也不执行 `down -v`。
+切换前核对合并配置，并保留可回退的旧镜像/override。更新通过构建和切换派生镜像完成，
+原运行容器和数据卷沿用既有管理方式。
 
 ### 更新已安装 Skill
 
-`skill-install` 不会覆盖内容不同的文件。先比较目标完整 Skill 目录和
-已安装目录；如有本地自定义文件，保留并指出差异，不把它们自动拼入
-新脚本。需要保留的修改另行处理，不能将混合版本报告为正式安装。
+`skill-install` 会比较目标完整 Skill 目录和已安装目录。发现本地自定义文件时，
+先备份并单独保留这些修改，再安装目标发行资源；混合内容按自定义副本说明。
 
-已完成私有备份后，将旧 `deeptutor-link` 目录整体移出 Skill 发现目录，
-再按“安装 AI 助手 Skill”安装完整新目录。复制到不存在的目标，防止
-`cp -R` 嵌套出第二层；不要只替换脚本而留下旧参考文档。服务端安装器
-必须来自本次选定发行资源；客户端没有 Python 包时直接复制目标版资源，
-无需为了更新 Skill 安装全局 CLI。
+完成私有备份后，将旧 `deeptutor-link` 目录移出 Skill 发现目录，再按
+“安装 AI 助手 Skill”复制完整新目录。检查目标层级及 `SKILL.md`、脚本和全部参考文档，
+确保它们来自同一发行资源。服务端安装器使用本次选定发行资源；客户端没有 Python 包时，
+直接复制目标版资源即可。
 
-保留私有连接目录，无须 `login`、`initialize`、`bind` 或重新选角色。
-需要时只为已过期凭据重新登录；账号/范围不符则停止，不改成另一个
-账号来通过检查。不将旧教学缓存当成本聊天已读协议，新聊天重新
-`resume --new-chat`。
+私有连接目录保持原样，现有登录、连接范围、主题绑定和角色选择继续沿用。
+凭据过期时通过原账号重新登录；账号或范围不符时修复对应连接。新聊天运行
+`resume --new-chat` 读取当前协议，磁盘缓存只用于客户端运行。
 
 ### 更新验收与回退
 
@@ -489,38 +508,34 @@ Docker 更新按“Docker 持久安装”构建新的持久派生镜像，使用
 `capabilities`；已绑定主题时再运行 `resume --new-chat`、
 `context --limit 1`。检查原网站和原健康接口仍正常，核对身份接口的
 `extension_version`、服务端实际包版本与目标资源，以及 Skill 完整文件
-是否一致。账号/工作区/主题绑定和角色选择应保留；并发期间 revision
-可以增加，不能拿备份旧状态覆盖当前学习库。配置和只读验收不写虚构作答。
+是否一致。核对账号/工作区/主题绑定和角色选择；并发期间 revision
+可以增加，以当前学习库为准并将备份用于文件回退。配置和只读验收保持学习记录不变。
 
-报告目标 commit/wheel、两端安装位置、已完成和未完成的更新、验证结果
-及私有备份位置。全部通过后新开聊天说“继续学习”，不要求学习聊天
-理解升级过程。只更新了仓库、尚未重启或只装好一端时，明确报告未完成。
+报告目标 commit/wheel、两端安装位置、已完成和待完成的更新、验证结果
+及私有备份位置。全部通过后新开聊天说“继续学习”；分别说明仓库获取、服务端更新和 Skill 更新状态。
 
 失败时保持维护状态：用当前包或本次安装保存的恢复脚本卸载新补丁，
-确认宿主恢复后，将本次恢复脚本另存到私有备份目录，再用已保留的
-旧源码/wheel 安装原包和原补丁；完整恢复旧 Skill。Docker 切回原镜像
-和原 override，保留数据挂载。不回滚、覆盖或清空学习库。连接配置
-本应未变，只有确认被本次操作修改且需要恢复时才还原相应私有备份。
-若无法确认补丁身份或宿主指纹，不继续启动/覆盖，报告具体冲突。
+确认宿主恢复后备份本次恢复脚本，再用已保留的旧源码/wheel 安装原包和原补丁；完整恢复旧 Skill。
+Docker 切回原镜像和原 override，并复用原数据挂载。学习库保持当前状态；
+连接配置按需从对应私有备份恢复。补丁身份或宿主指纹需要进一步核实时，记录冲突并完成核实后再启动服务。
 
 ### 旧名称迁移
 
-从旧名称 DeepTutor-Codex 迁移时，先检查旧全局/项目 Skill 和私有目录
-`$HOME/.config/deeptutor-codex/`。不自动覆盖已有新版配置，也不同时启用同名
-功能的新旧 Skill。原服务停止后，用旧环境的 `deeptutor-codex server-uninstall`
+从旧名称 DeepTutor-Codex 迁移时，检查旧全局/项目 Skill 和私有目录
+`$HOME/.config/deeptutor-codex/`，再确定迁移配置范围。保留已有新版配置，
+Skill 发现目录使用选定版本。原服务停止后，用旧环境的 `deeptutor-codex server-uninstall`
 或旧 `.deeptutor-codex-recover.py` 卸载旧补丁，再按本指南安装新版。
 Docker 使用新版派生镜像与原挂载，无需在运行容器里卸包或改源码。
 
-旧连接与凭据可在用户要求沿用时复制到新的私有目录，保留 `600` 权限；先验证
-origin 和实际身份，再检查账号、工作区及主题。旧 `token_env` 的显式值仍有效，
-全新连接默认用 `DT_LINK_TOKEN`。`persona_source=codex_explicit` 可改为
-`assistant_explicit`；不复制教学协议缓存，首次用 `resume --new-chat` 刷新。
-旧配置与 Skill 的备份留在 skills 和公共仓库之外。新版安装器不会自动卸载旧
-补丁；遇到旧源码指纹就停止，不能改指纹强行通过。
+旧连接与凭据在用户选择沿用时复制到新的私有目录并保留 `600` 权限；用 API origin
+和实际身份核对账号、工作区及主题。旧 `token_env` 的显式值仍有效，全新连接默认用
+`DT_LINK_TOKEN`。迁移时把 `persona_source=codex_explicit` 映射为 `assistant_explicit`；
+运行 `resume --new-chat` 重新读取教学协议。旧配置与 Skill 的备份放在 skills 和公共仓库之外。
+先通过旧版扩展或恢复脚本卸载旧补丁，再使用新版安装器并核对源码指纹。
 
 ### 卸载与独立恢复
 
-卸载先停止原服务，卸补丁后才卸 Python 包：
+卸载按“停止原服务 → 卸载宿主补丁 → 移除 Skill → 卸载 Python 包”的顺序执行：
 
 ```sh
 "$DTC_HOST_PYTHON" -m deeptutor_link.cli server-uninstall --host "$DTC_HOST" --dry-run
@@ -533,8 +548,8 @@ origin 和实际身份，再检查账号、工作区及主题。旧 `token_env` 
 `uv pip uninstall --python "$DTC_HOST_PYTHON" deeptutor-link`。
 
 服务器与客户端分开时，在各自机器处理；客户端只有复制的 Skill 时，
-确认安装目录和本地修改后只移走该 Skill。卸载不会自动删除连接、Cookie
-或学习状态。需要清除本地登录时，在脚本移走前运行
+确认安装目录和本地修改后移走该 Skill。卸载会保留连接、Cookie 和学习状态。
+需要清除本地登录时，在脚本移走前运行
 `CLIENT logout --url API_ORIGIN`；它只删除本地该 origin 的 Cookie，
 不撤销环境变量里的 token，也不注销原网站会话。
 
@@ -547,7 +562,6 @@ origin 和实际身份，再检查账号、工作区及主题。旧 `token_env` 
 "$DTC_HOST_PYTHON" -I -S "$DTC_HOST_PACKAGE/.deeptutor-link-recover.py" --host "$DTC_HOST_PACKAGE"
 ```
 
-恢复拒绝未知源码改动、符号链接和不匹配收据；保留文件并报告冲突。
-不要删除或替换固定 `.flock` / 学习库 `.lock` 文件，文件存在不代表有
-进程占锁。安装中断可重跑已知安装/卸载流程；学习写入租约的诊断和
-恢复另见 `SKILL.md`，不用于绕过网页正在进行的学习。
+恢复脚本会先用源码指纹、符号链接检查和收据确认目标，并保留冲突文件供核对。
+固定 `.flock` / 学习库 `.lock` 文件由锁流程管理；活动状态通过租约和运行状态判断。
+安装中断时按已确认的安装/卸载步骤重试；学习写入租约按 `SKILL.md` 的接续流程处理。

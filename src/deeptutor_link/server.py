@@ -34,6 +34,7 @@ from deeptutor_link.models import (
     NativeTutorCall,
     PDFCommit,
     PDFPrepare,
+    PendingAnswer,
     QuestionRepairCommit,
     QuestionRepairPreview,
     Retrieval,
@@ -41,6 +42,7 @@ from deeptutor_link.models import (
     RouteCreate,
     RoutePreview,
 )
+from deeptutor_link.pending import answer_pending_question, pending_question
 from deeptutor_link.routes import commit_route, create_route, preview_route, read_route
 from deeptutor_link.teaching import (
     persona_catalog,
@@ -197,6 +199,7 @@ def build_router(prefix="/api/link/v1"):
             "extension_version": __version__,
             "capabilities": {
                 "mastery_context": True,
+                "pending_question_continuation": "external_leaf_assessment_no_host_llm",
                 "reading_locators": True,
                 "journal_mission_insights": True,
                 "journal_session_summaries": False,
@@ -889,6 +892,18 @@ def build_router(prefix="/api/link/v1"):
     async def create(body: RouteCreate):
         return await asyncio.to_thread(
             create_route, LearningStore(), body, identity()["workspace_id"]
+        )
+
+    @guarded.get("/topics/{path_id}/pending-question")
+    async def read_pending(path_id: str):
+        return await asyncio.to_thread(
+            pending_question, LearningStore(), path_id, identity()["workspace_id"]
+        )
+
+    @guarded.post("/topics/{path_id}/answer-pending-question")
+    async def answer_pending(path_id: str, body: PendingAnswer):
+        return await asyncio.to_thread(
+            answer_pending_question, LearningStore(), path_id, body, identity()["workspace_id"]
         )
 
     @guarded.get("/topics/{path_id}/route")

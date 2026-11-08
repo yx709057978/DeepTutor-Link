@@ -788,7 +788,13 @@ async def invoke_mastery_status(store, path_id: str) -> dict:
         ),
         "learner_profile": safe_profile,
         "intake_needed": payload.get("intake_needed"),
-        "pending": {"present": pending, "action": "finish_in_web" if pending else None},
+        "pending": {
+            "present": pending,
+            "kind": "persisted_question" if pending else None,
+            "action": "read_pending_question" if pending else None,
+            "command": "CLIENT pending-question" if pending else None,
+            "blocks_maintenance_by_itself": False,
+        },
         "untrusted_content": True,
     }
 

@@ -231,6 +231,12 @@ def _language_contract(response_language: str, resource_language: str) -> dict:
 def _operation_mapping(host_models: dict) -> list[dict]:
     chat_ready = bool(host_models.get("configured"))
     native = "CLIENT tool call_mastery_tutor --file -"
+    pending_continuation = {
+        "read_command": "CLIENT pending-question",
+        "answer_command": "CLIENT answer-pending-question --file -",
+        "condition": "An original leaf question is pending and continuation.supported=true.",
+        "host_model_required": False,
+    }
     assistant_quiz = {
         "available": True,
         "operation": "assistant_question_and_external_assessment",
@@ -238,6 +244,7 @@ def _operation_mapping(host_models: dict) -> list[dict]:
         "host_model_required": False,
         "daily_path": True,
         "scope": "The current assistant poses a fresh grounded question, waits for a real answer, and writes the semantic assessment.",
+        "original_pending_question": pending_continuation,
         "alternative_without_host_chat_model": "This is the ordinary path with or without a host chat model.",
         "native_explicit_path": {
             "operation": "call_mastery_tutor",
@@ -256,8 +263,8 @@ def _operation_mapping(host_models: dict) -> list[dict]:
         {"native": "mastery_build", "available": True, "operation": "route_create", "command": "CLIENT route-create --file -", "host_model_required": False},
         {"native": "mastery_revise", "available": True, "operation": "route_preview_then_commit", "command": "CLIENT route-preview --file -; CLIENT route-commit --file -", "host_model_required": False},
         {"native": "mastery_quiz", **assistant_quiz},
-        {"native": "mastery_grade", "available": True, "operation": "assistant_external_assessment", "command": "CLIENT assess --file -", "host_model_required": False, "daily_path": True},
-        {"native": "mastery_assess", "available": True, "operation": "assistant_external_assessment", "command": "CLIENT assess --file -", "host_model_required": False, "daily_path": True},
+        {"native": "mastery_grade", "available": True, "operation": "assistant_external_assessment", "command": "CLIENT assess --file -", "host_model_required": False, "daily_path": True, "original_pending_question": pending_continuation},
+        {"native": "mastery_assess", "available": True, "operation": "assistant_external_assessment", "command": "CLIENT assess --file -", "host_model_required": False, "daily_path": True, "original_pending_question": pending_continuation},
         {"native": "ask_user", "available": True, "operation": "assistant_conversation", "host_model_required": False, "scope": "Used only for clarification, never to bypass a source-grounded assessment card."},
         {"native": "rag", "available": True, "operation": "scoped_source_reads", "commands": ["CLIENT retrieve --objective ID --source SOURCE_ID --query QUERY", "CLIENT tool read_knowledge_file --file -", "CLIENT tool search_knowledge_file --file -"], "host_model_required": False},
         {"native": "read_source", "available": True, "operation": "scoped_source_reads", "commands": ["CLIENT tool list_objective_pdfs --file -", "CLIENT tool read_knowledge_file --file -", "CLIENT tool search_knowledge_file --file -"], "host_model_required": False},
@@ -292,9 +299,12 @@ def _operation_mapping(host_models: dict) -> list[dict]:
 def _engine_state(store: Any, path_id: str, progress: Any) -> dict:
     from deeptutor.learning import policy
 
+    from deeptutor_link.leases import recover_lease
+    from deeptutor_link.pending import pending_summary
+
     store.get_topic(path_id, progress=progress)
     step = policy.next_objective(progress)
-    pending = store.get_active_interaction(path_id)
+    pending = pending_summary(store, path_id, progress)
     profile = progress.learner_profile
     return {
         "objective_type": str(getattr(step, "knowledge_point_type", "") or ""),
@@ -306,7 +316,9 @@ def _engine_state(store: Any, path_id: str, progress: Any) -> dict:
         "next_action": str(getattr(step, "action", "") or ""),
         "next_objective_id": str(getattr(step, "knowledge_point_id", "") or "")[:200],
         "next_reason": str(getattr(step, "reason", "") or "")[:800],
-        "pending_present": bool(pending or progress.pending_question),
+        "pending_present": pending["present"],
+        "pending": pending,
+        "mutation_lease": recover_lease(store, path_id, inspect_only=True),
         "learner_preferences": {
             key: str(getattr(profile, key, "") or "")[:600]
             for key in ("prior_knowledge", "target_level", "time_budget", "preferences", "teaching_strategy")
@@ -355,7 +367,7 @@ async def teaching_protocol(store, path_id: str, persona: str, mode: str, langua
         "ordinary_teaching_calls_host_chat": False,
         "website_answer_cards": "Never used for ordinary teaching; native tools remain available only through an explicit learner-requested call_mastery_tutor path.",
         "ask_user": "AI assistant conversation; clarification only.",
-        "assessment": "Use CLIENT assess after a real independent learner answer; preserve pending and revision protections.",
+        "assessment": "Continue an existing original question through CLIENT pending-question and CLIENT answer-pending-question. Use CLIENT assess for a fresh question only when no original question is pending.",
         "source_evidence": "Use mapped scoped reads and PDF evidence gates; never substitute a retrieval hit for an unverified claim.",
         "mode_changes": "Assistant-local teaching mode; do not alter website session preferences.",
         "historical_repair": "Use the extension preview/commit workflow.",
