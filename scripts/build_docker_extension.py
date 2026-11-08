@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import venv
 from pathlib import Path
 
 EXPECTED_VERSION = "1.7.1"
@@ -24,6 +25,18 @@ def run(command: list[str], *, capture: bool = False) -> str:
         message = result.stderr or result.stdout or f"Command failed: {' '.join(command)}"
         raise SystemExit(message)
     return result.stdout if capture else ""
+
+
+def build_wheel(root: Path, staging: Path) -> Path:
+    environment = staging / "build-python"
+    venv.EnvBuilder(with_pip=True).create(environment)
+    python = environment / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
+    run([str(python), "-I", "-m", "pip", "wheel", "--no-deps",
+         "--wheel-dir", str(staging), str(root)])
+    wheels = sorted(staging.glob("deeptutor_link-*.whl"))
+    if len(wheels) != 1:
+        raise SystemExit(f"Expected one newly built extension wheel, found {len(wheels)}.")
+    return wheels[0]
 
 
 def main() -> int:
@@ -55,11 +68,7 @@ def main() -> int:
     staging = Path(tempfile.mkdtemp(prefix="deeptutor-link-wheel-"))
     wheel = None
     try:
-        run([sys.executable, "-m", "pip", "wheel", "--no-deps", "--wheel-dir", str(staging), str(root)])
-        wheels = sorted(staging.glob("deeptutor_link-*.whl"))
-        if len(wheels) != 1:
-            raise SystemExit(f"Expected one newly built extension wheel, found {len(wheels)}.")
-        wheel = wheels[0]
+        wheel = build_wheel(root, staging)
         dist = root / "dist"
         dist.mkdir(exist_ok=True)
         shutil.copyfile(wheel, dist / wheel.name)

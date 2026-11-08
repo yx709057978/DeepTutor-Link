@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from deeptutor_link.assets.skill.scripts import deeptutor_link as client_script
 from deeptutor_link.assets.skill.scripts.deeptutor_link import parser
+from deeptutor_link.teaching import _operation_mapping
 
 
 def headers(account):
@@ -13,6 +14,34 @@ def headers(account):
         "X-DeepTutor-Account": account["uid"],
         "X-DeepTutor-Workspace": account["workspace"],
     }
+
+
+def test_daily_operation_mapping_is_assistant_owned_for_all_model_configs():
+    model_configs = (
+        "no-models",
+        "embedding-only",
+        "chat-and-embedding",
+    )
+    for model_config in model_configs:
+        chat_ready = model_config == "chat-and-embedding"
+        chat_models = {"configured": chat_ready, "model": "synthetic" if chat_ready else ""}
+        operations = {row["native"]: row for row in _operation_mapping(chat_models)}
+        quiz = operations["mastery_quiz"]
+        assert quiz["available"] is True
+        assert quiz["daily_path"] is True
+        assert quiz["host_model_required"] is False
+        assert quiz["operation"] == "assistant_question_and_external_assessment"
+        assert "CLIENT assess" in quiz["command"]
+        assert quiz["native_explicit_path"]["daily_path"] is False
+        assert quiz["native_explicit_path"]["operation"] == "call_mastery_tutor"
+        for name in ("mastery_grade", "mastery_assess"):
+            assert operations[name]["daily_path"] is True
+            assert operations[name]["host_model_required"] is False
+            assert operations[name]["command"] == "CLIENT assess --file -"
+        assert operations["mastery_prepare_lesson_native"]["daily_path"] is False
+        for name in ("mastery_profile", "mastery_note_explained"):
+            assert operations[name]["daily_path"] is False
+        assert operations["mastery_prepare_lesson_native"]["available"] is chat_ready
 
 
 @pytest.fixture
@@ -107,9 +136,12 @@ def test_teaching_protocol_reads_persona_rules_without_host_models_or_writes(
         assert result["engine_state"]["objective_type"] == "concept"
         operations = {row["native"]: row for row in result["operations"]}
         assert operations["mastery_status"]["operation"] == "read_mastery_status"
-        assert operations["mastery_quiz"]["available"] is False
-        assert "CLIENT assess" in operations["mastery_quiz"]["alternative_without_host_chat_model"]
-        assert operations["mastery_grade"]["operation"] == "codex_external_assessment"
+        assert operations["mastery_quiz"]["available"] is True
+        assert operations["mastery_quiz"]["daily_path"] is True
+        assert operations["mastery_quiz"]["operation"] == "assistant_question_and_external_assessment"
+        assert "CLIENT assess" in operations["mastery_quiz"]["command"]
+        assert operations["mastery_quiz"]["native_explicit_path"]["daily_path"] is False
+        assert operations["mastery_grade"]["operation"] == "assistant_external_assessment"
         assert operations["mastery_revise"]["operation"] == "route_preview_then_commit"
         assert operations["mastery_mode"]["scope"].startswith("Controls the current AI assistant")
         assert operations["mastery_mode"]["command"] == "CLIENT protocol --mode MODE"
@@ -164,7 +196,8 @@ def test_protocol_language_fingerprint_refresh_and_missing_role(persona):
         assert value["engine_state"]["pending_present"] is False
         assert value["engine_state"]["learner_preferences"]["preferences"] == ""
         operations = {row["native"]: row for row in value["operations"]}
-        assert operations["mastery_quiz"]["available"] is False
+        assert operations["mastery_quiz"]["daily_path"] is True
+        assert operations["mastery_quiz"]["operation"] == "assistant_question_and_external_assessment"
         with account["store"].transaction("same-topic-id") as transaction:
             from deeptutor.learning.models import LearnerProfile
 
@@ -186,7 +219,8 @@ def test_protocol_language_fingerprint_refresh_and_missing_role(persona):
         assert value["revision"] == revision + 1
         assert value["engine_state"]["learner_preferences"]["preferences"] == "Japanese examples"
         operations = {row["native"]: row for row in value["operations"]}
-        assert operations["mastery_quiz"]["available"] is False
+        assert operations["mastery_quiz"]["daily_path"] is True
+        assert operations["mastery_quiz"]["operation"] == "assistant_question_and_external_assessment"
         missing = client.get(
             "/api/link/v1/topics/same-topic-id/teaching/protocol",
             headers=headers(account),
@@ -360,7 +394,7 @@ def test_initialize_preserves_scope_fields_and_resets_cross_scope(tmp_path):
     )
 
     class BridgedClient:
-        def __init__(self, config, credentials):
+        def __init__(self, config=None, credentials=None):
             self.config = config
 
         def topic_path(self, suffix):
@@ -500,11 +534,19 @@ def test_history_commands_are_bounded_and_scoped(tmp_path):
 
         def call(self, method, path, data=None, params=None, timeout=60):
             calls.append((method, path, params))
-            return (
-                {"sessions": [{"session_id": "session", "answer": "secret"}]}
-                if path == "/api/sessions"
-                else {"messages": [{"role": "user", "content": "visible"}]}
-            )
+            if path == "/api/sessions":
+                if params["offset"] == 4:
+                    return {
+                        "sessions": [
+                            {"session_id": "page-one", "answer": "secret"},
+                            *[
+                                {"session_id": f"probe-{index}", "answer": "secret"}
+                                for index in range(10)
+                            ],
+                        ]
+                    }
+                return {"sessions": [{"session_id": "last", "answer": "secret"}]}
+            return {"messages": [{"role": "user", "content": "visible"}]}
 
     original_client = client_script.Client
     client_script.Client = BridgedClient
@@ -543,14 +585,88 @@ def test_history_commands_are_bounded_and_scoped(tmp_path):
         )
     finally:
         client_script.Client = original_client
-    assert listing == {"sessions": [{"session_id": "session"}]}
-    assert calls[0] == ("GET", "/api/sessions", {"offset": 4, "limit": 10})
+    assert listing == {
+        "sessions": [
+            {"session_id": "page-one"},
+            *[{"session_id": f"probe-{index}"} for index in range(9)],
+        ],
+        "offset": 4,
+        "limit": 10,
+        "next_offset": 14,
+    }
+    assert calls[0] == ("GET", "/api/sessions", {"offset": 4, "limit": 11})
     assert history == {"messages": [{"role": "user", "content": "visible"}]}
     assert calls[1] == (
         "GET",
         "/api/link/v1/sessions/a%2Fb/history",
         {"offset": 2, "limit": 5},
     )
+
+
+def test_session_operation_pagination_matches_history_command(tmp_path):
+    config_path = tmp_path / "connection.json"
+    client_script.save(
+        config_path,
+        {
+            "url": "http://127.0.0.1",
+            "account_id": "account",
+            "workspace_id": "workspace",
+            "topic_id": "topic",
+            "token_env": "TOKEN_ENV",
+        },
+    )
+    calls = []
+
+    class BridgedClient:
+        def __init__(self, config=None, credentials=None):
+            pass
+
+        def call(self, method, path, data=None, params=None, timeout=60):
+            calls.append((method, path, params))
+            rows = [{"session_id": str(index), "answer": "secret"} for index in range(8)]
+            start = params["offset"]
+            return {"sessions": rows[start : start + params["limit"]]}
+
+    original_client = client_script.Client
+    client_script.Client = BridgedClient
+    try:
+        listing = client_script.execute(
+            client_script.parser().parse_args(
+                [
+                    "--config",
+                    str(config_path),
+                    "--credentials",
+                    str(tmp_path / "credentials.json"),
+                    "history-list",
+                    "--offset",
+                    "5",
+                    "--limit",
+                    "4",
+                ]
+            )
+        )
+        operation = client_script.operation_call(
+            BridgedClient(), "list_deeptutor_sessions", {"offset": 5, "limit": 4}
+        )
+        with pytest.raises(ValueError, match="outside the allowed range"):
+            client_script.operation_call(
+                BridgedClient(), "list_deeptutor_sessions", {"offset": -1, "limit": 4}
+            )
+        with pytest.raises(ValueError, match="outside the allowed range"):
+            client_script.operation_call(
+                BridgedClient(), "list_deeptutor_sessions", {"offset": 0, "limit": 51}
+            )
+    finally:
+        client_script.Client = original_client
+    assert listing == {
+        "sessions": [{"session_id": "5"}, {"session_id": "6"}, {"session_id": "7"}],
+        "offset": 5,
+        "limit": 4,
+        "next_offset": None,
+    }
+    assert calls[0] == ("GET", "/api/sessions", {"offset": 5, "limit": 5})
+    assert operation == listing
+    assert calls[1] == ("GET", "/api/sessions", {"offset": 5, "limit": 5})
 
 
 def test_client_explicit_persona_select_and_clear_preserve_connection(

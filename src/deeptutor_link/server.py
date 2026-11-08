@@ -104,6 +104,7 @@ def build_router(prefix="/api/link/v1"):
     class PrivateRoute(APIRoute):
         def get_route_handler(self):
             handler = super().get_route_handler()
+            query_fields = {field.alias for field in self.dependant.query_params}
 
             async def handle(request):
                 from deeptutor.core.errors import AccessError
@@ -127,8 +128,23 @@ def build_router(prefix="/api/link/v1"):
                     response = await handler(request)
                     response.headers["Cache-Control"] = "no-store"
                     return response
-                except RequestValidationError:
-                    return failure(422, "invalid_request", "Invalid bridge request schema.")
+                except RequestValidationError as exc:
+                    errors = []
+                    for error in exc.errors()[:20]:
+                        location = error.get("loc", ())
+                        if len(location) != 2 or location[0] != "query" or location[1] not in query_fields:
+                            continue
+                        item = {"field": location[1]}
+                        kind = error.get("type")
+                        if kind in {"int_parsing", "int_type"}:
+                            item["expected"] = "integer"
+                        for key in ("ge", "le", "min_length", "max_length"):
+                            bound = error.get("ctx", {}).get(key)
+                            if type(bound) is int:
+                                item[key] = bound
+                        if len(item) > 1:
+                            errors.append(item)
+                    return failure(422, "invalid_request", "Invalid bridge request schema.", errors=errors)
                 except BridgeError as exc:
                     return failure(exc.status, exc.code, exc.message)
                 except LearningConflictError as exc:

@@ -269,6 +269,8 @@ def test_skill_uses_temporary_agents_directory_and_preserves_modified_file(tmp_p
     assert (target / "deeptutor-link/scripts/deeptutor_link.py").is_file()
     guide = target / "deeptutor-link/references/setup.md"
     assert guide.is_file()
+    assert (target / "deeptutor-link/references/routes.md").is_file()
+    assert (target / "deeptutor-link/references/native-tools.md").is_file()
     setup_skill(target, uninstall=True)
     assert not path.parent.exists()
     setup_skill(target, uninstall=True)

@@ -1,8 +1,10 @@
 import json
+from io import BytesIO
+from urllib.error import HTTPError
 
 import pytest
 
-from deeptutor_link.assets.skill.scripts.deeptutor_link import load, origin, save
+from deeptutor_link.assets.skill.scripts.deeptutor_link import http_error, load, origin, save
 from deeptutor_link.cli import main
 
 
@@ -39,3 +41,23 @@ def test_cli_skill_target_uses_explicit_temporary_directory(tmp_path, capsys):
     assert main(["skill-install", "--target", str(target), "--dry-run"]) == 0
     assert not target.exists()
     assert json.loads(capsys.readouterr().out)["target"] == str(target / "deeptutor-link")
+
+
+@pytest.mark.parametrize(
+    ("status", "detail", "expected"),
+    [
+        (422, {"code": "invalid_request", "errors": [
+            {"field": "limit", "le": 50, "input": "PRIVATE"},
+            {"field": "SECRET_INPUT", "le": 1},
+            {"field": [], "le": 1},
+        ], "message": "PRIVATE"}, "limit maximum is 50"),
+        (422, [{"input": "PRIVATE"}], "documented argument bounds"),
+        (401, {"code": "not_authenticated", "message": "PRIVATE"}, "log in again"),
+    ],
+)
+def test_http_diagnostics_use_safe_constraints_without_private_input(status, detail, expected):
+    response = BytesIO(json.dumps({"detail": detail}).encode())
+    error = HTTPError("http://127.0.0.1", status, "PRIVATE", {}, response)
+    message = str(http_error(error))
+    assert expected in message
+    assert "PRIVATE" not in message and "SECRET_INPUT" not in message

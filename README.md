@@ -10,8 +10,8 @@
 查看渲染图片。其他客户端的技能发现和安装目录需分别适配，尚未完成使用验证。
 
 扩展 0.2.0 仅支持已审查的 **DeepTutor v1.7.1 /
-f7aed0744c36c5afef16a4261c31ebee1208cac2**。名称为工作名称，尚未声明 PyPI
-或 GitHub 名称可用，也未发布。
+f7aed0744c36c5afef16a4261c31ebee1208cac2**。源码已公开于 GitHub 仓库
+`yx709057978/DeepTutor-Link`，尚未发布到 PyPI；按下方本地源码方式安装。
 
 ## 开始使用
 
@@ -108,13 +108,15 @@ mkdir -p /path/to/.agents/skills
 cp -R /path/to/deeptutor-link/src/deeptutor_link/assets/skill \
   /path/to/.agents/skills/deeptutor-link
 python3 /实际安装路径/deeptutor-link/scripts/deeptutor_link.py --help
+python3 /实际安装路径/deeptutor-link/scripts/deeptutor_link.py describe
 ```
 
 默认 Skill 路径 `$HOME/.agents/skills/deeptutor-link`。项目级可用
 `skill-install --target /path/to/project/.agents/skills`，不会修改 AI 助手 provider/模型。
 如果本机已为服务端安装本包，也可运行 `deeptutor-link skill-install` 自动复制整个
 Skill。后续无须 CLI 在 PATH 中。下面 `CLIENT` 表示上面脚本的完整 Python 命令；
-执行时需展开为实际路径，Skill 自身也按其安装位置定位脚本。
+执行时需展开为实际路径，Skill 自身也按其安装位置定位脚本。若开发仓库副本和
+已安装副本都存在，学习流程优先使用安装副本及其配套脚本和参考文档。
 
 ## 连接原实例
 
@@ -158,7 +160,8 @@ CLIENT retrieve --objective ORIGINAL_OBJECTIVE_ID \
 `doctor` 校验协议、原账号/工作区、主题存在性和 host readiness，
 并在已绑定主题上返回 `mutation_lease` 诊断（不会自动删除租约）。`capabilities` 分别报告 DeepTutor 聊天模型和 embedding 是否配置；配置状态不等于向量检索健康，兼容索引和查询 embedding 仍以一次 `retrieve` 成功为准。无 embedding 时仍可用授权资料的有界文件读取和 literal search；不能满足来源或宿主证据门槛时停止该项测评。上下文与检索字段
 有白名单和上限；分页字段 `next_offset` 可继续请求。原网站链接由客户端统一拼接
-为 `--web-url` 指定 origin 的绝对 URL。
+为 `--web-url` 指定 origin 的绝对 URL。`retrieve --top-k` 每次最多返回 8 条；
+`CLIENT describe` 离线给出命令参数和调用契约。
 
 三种可诊断配置：无 DeepTutor 聊天模型、无 embedding 时，AI 助手自己的教学、
 资料直读、literal search 与满足证据门槛的评估仍可用；仅配置 embedding 时，
@@ -390,7 +393,7 @@ DEEPTUTOR_SOURCE=/tmp/deeptutor-link-test-host .venv/bin/pytest
 `prepare_test_host.py` 获取上述固定 commit 并校验受支持指纹；已有副本可用
 `--source /path/to/DeepTutor` 只校验，不访问网络。测试必须显式指定
 `DEEPTUTOR_SOURCE`，不依赖父目录或其他应用的 vendor。验证源码指纹可用
-`scripts/generate_contract.py --check`；升级支持基线需要重新审查，不能改指纹绕过检查。
+`python scripts/generate_contract.py /path/to/DeepTutor/deeptutor src/deeptutor_link/assets/host-contract.json --check`；升级支持基线需要重新审查，不能改指纹绕过检查。
 
 真实宿主 service 测试还需要其轻量依赖，见 `tests/requirements-host.txt`。
 其中 `markdown-it-py` 用于导入原网页会话模块，运行租约交错测试时必需。

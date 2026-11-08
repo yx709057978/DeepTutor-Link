@@ -1,11 +1,16 @@
 import pytest
+from pydantic import ValidationError
 
 from deeptutor_link.assets.skill.scripts.deeptutor_link import (
     OPS,
+    cli_contract,
     operation_call,
     operation_catalog,
+    operation_contract,
+    parser,
     scrub_answers,
 )
+from deeptutor_link.models import PDFCommit, Retrieval
 
 
 class FakeClient:
@@ -36,6 +41,105 @@ def test_catalog_counts_only_wired_or_explicitly_unavailable_operations():
     assert catalog["operations"]["get_deeptutor_session"]["available"]
     assert catalog["operations"]["get_deeptutor_session"]["optional"] == ["offset", "limit"]
     assert not catalog["operations"]["list_courses"]["available"]
+
+
+def test_every_catalog_operation_has_a_self_describing_contract():
+    for name, row in operation_catalog()["operations"].items():
+        contract = row["contract"]
+        assert contract["kind"] == "operation"
+        assert contract["name"] == name
+        assert contract["available"] == row["available"]
+        assert contract["summary"]
+        assert contract["response"] and contract["success"]
+        assert contract["binding"] and contract["retry"]
+        assert "model_dependency" in contract
+        assert "writes_host_state" in contract
+        assert "daily_path" in contract
+        assert set(contract["required"]) == set(row["required"])
+        assert set(contract["optional"]) == set(row["optional"])
+        if row["available"]:
+            assert contract["minimal_call"] and contract["minimal_call"]["command"]
+        else:
+            assert contract["minimal_call"] is None
+            assert contract["unavailable_reason"]
+
+
+def test_describe_contracts_match_parser_and_server_validation():
+    retrieve = operation_contract("search_vector_knowledge")
+    assert retrieve["arguments"]["top_k"]["maximum"] == 8
+    assert retrieve["minimal_call"]["input"] == {
+        "objective_id": "OBJECTIVE_ID",
+        "source_id": "SOURCE_ID",
+        "query": "SEARCH_QUESTION",
+    }
+    assert retrieve["model_dependency"].startswith("Requires a working query embedding")
+    assert "chat_model_used:false" in retrieve["response"]
+    Retrieval(objective_id="objective", source_id="source", query="query", top_k=8)
+    with pytest.raises(ValidationError):
+        Retrieval(objective_id="objective", source_id="source", query="query", top_k=9)
+
+    command = cli_contract("retrieve")
+    assert command["arguments"]["top_k"]["maximum"] == 8
+    parser().parse_args(command["execution"]["command"].removeprefix("CLIENT ").split())
+    parser().parse_args(["assess", "--file", "-"])
+
+    native = operation_contract("call_mastery_tutor")
+    assert native["daily_path"] is False
+    assert native["writes_host_state"] is True
+    assert native["minimal_call"]["input"]["confirm"] is True
+
+
+def test_commit_pdf_contract_example_matches_model_and_visual_requirements():
+    commit = operation_contract("commit_pdf_evidence")
+    example = commit["minimal_call"]["input"]
+    assert commit["arguments"]["sources"] == {
+        "type": "array",
+        "min_items": 1,
+        "max_items": 6,
+        "required": True,
+        "item": {
+            "type": "object",
+            "required": ["page_number", "supports"],
+            "fields": {
+                "page_number": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 5,
+                    "meaning": "Zero-based page slot from the preparation, not a PDF page label.",
+                },
+                "quote": {
+                    "type": "string",
+                    "max_length": 1200,
+                    "meaning": "Exact text read from the inspected rendered page.",
+                },
+                "supports": {
+                    "type": "string",
+                    "min_length": 8,
+                    "max_length": 1000,
+                    "meaning": "How the inspected page supports the evidence packet.",
+                },
+                "visual_observation": {
+                    "type": "string",
+                    "max_length": 2000,
+                    "meaning": "Observation from actually opening the rendered page.",
+                },
+            },
+            "evidence_rule": "Cite only text actually read and observations actually made; never substitute preparation metadata or a plausible answer.",
+        },
+    }
+    valid = {
+        **example,
+        "request_id": "12345678-1234-4123-8123-123456789abc",
+        "preparation_id": "22345678-1234-4223-8223-123456789abc",
+    }
+    PDFCommit.model_validate(valid)
+    with pytest.raises(ValidationError):
+        PDFCommit.model_validate({**valid, "sources": []})
+    with pytest.raises(ValidationError):
+        PDFCommit.model_validate({**valid, "sources": [{**valid["sources"][0], "page_number": 6}]})
+    with pytest.raises(ValidationError):
+        PDFCommit.model_validate({**valid, "sources": [{**valid["sources"][0], "supports": "short"}]})
+    assert "rendered page locally" in commit["success"]
 
 
 def test_mastery_and_knowledge_operations_use_extension_contract():

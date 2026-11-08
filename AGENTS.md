@@ -22,6 +22,9 @@ Users do not need to name a Skill, read a guide or know CLI arguments.
   checkout's bundled script and route missing setup through the setup guide.
   Present visible roles, learning topics and continuation choices by name.
   Resolve IDs through the APIs and restore the selected state before teaching.
+  A request to start learning in this project is not permission to inspect the
+  repository implementation; use the Skill client, its offline `describe`
+  contracts and structured runtime diagnostics first.
 - A new chat in this project follows the same entry points. Do not require the
   previous assistant conversation; the original DeepTutor state and private
   connection configuration provide continuity.

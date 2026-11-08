@@ -246,6 +246,8 @@ def setup_skill(target: Path, *, uninstall: bool = False, dry_run: bool = False)
             "scripts/deeptutor_link.py",
             "references/setup.md",
             "references/workflows.md",
+            "references/routes.md",
+            "references/native-tools.md",
         )
     }
     if target.is_symlink():

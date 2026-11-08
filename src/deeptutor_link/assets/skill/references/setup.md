@@ -1,8 +1,9 @@
 # AI 安装与配置指南
 
 当用户要求安装、连接、切换实例、升级或排查配置时，按本指南执行。
-先读当前脚本的 `--help`，复用已有配置，只询问无法发现且会影响结果的信息。
-一次普通的“继续学习”使用 `resume`，不需要重新安装或初始化。
+先读当前脚本的 `--help` 和 `describe`，复用已有配置，只询问无法发现且会影响
+结果的信息。一次普通的“继续学习”使用 `resume`，不需要重新安装或初始化；
+只有独立的明确维护任务才研究实现。
 
 ## 用户入口
 
@@ -15,9 +16,11 @@
 ID。配置完成后，在同一项目新聊天说“开始学习”，按 `SKILL.md` 的 Guided
 Start 引导选择；全局安装后也可在其他合适的学习聊天中使用。
 
-本项目尚未发布。使用已经取得并审查的本地源码或 wheel，不假设 PyPI
-已有可安装版本，也不编造下载地址。仓库中的本文件和安装后的本文件是
-同一份发行资源。
+源码已公开于 GitHub 仓库 `yx709057978/DeepTutor-Link`，尚未发布到 PyPI。
+使用已经取得并审查的本地源码或 wheel，不假设 PyPI 已有可安装版本。
+仓库中的本文件和安装后的本文件是同一份发行资源。
+若仓库开发副本和已安装副本都存在，优先使用安装副本自身的脚本和发行资源，
+不混用版本。
 
 ## 先确定已有环境
 
@@ -109,7 +112,10 @@ ghcr.io/hkuds/deeptutor:1.7.1@sha256:4982ca6bf43b98431366b43d1fec674a63656db3fbe
 已有镜像必须匹配受支持的 commit 和源码指纹。自定义镜像中的未知改动需要
 先核实，不能丢弃原依赖或用别的镜像覆盖。下面使用默认固定基线；构建工具
 检查本地镜像标签，在派生层中安装 wheel 并执行同一 `server-check` 和
-`server-install`。构建机解释器要满足 Python 3.11+ 且具有 pip：
+`server-install`。构建机解释器要满足 Python 3.11+，支持 `venv` 和
+`ensurepip`。脚本自动建立临时构建环境，用其中的 pip 按 `pyproject.toml`
+安装构建依赖，结束后删除临时环境；不升级系统 Python 的 setuptools。
+构建依赖仍需按本机既有 pip 源或缓存策略取得。
 
 ```sh
 DTC_BUILD_PYTHON='/absolute/path/to/verified/python3.11-or-newer'
@@ -177,13 +183,15 @@ cp -R "$DTC_REPO/src/deeptutor_link/assets/skill" "$DTC_SKILL_PARENT/deeptutor-l
 ```
 
 复制应包含 `SKILL.md`、`scripts/deeptutor_link.py` 和本
-`references/setup.md`。目标已存在时先按“升级与恢复”处理。
+`references/setup.md`，并保留发行目录中的全部 `references/*.md`。目标已存在时
+先按“升级与恢复”处理。
 客户端不需要为了复制 Skill 而安装 Python 包。随后检查独立运行：
 
 ```sh
 DTC_SKILL="$DTC_SKILL_PARENT/deeptutor-link"
 DTC_CLIENT_PYTHON='/absolute/path/to/verified/python3.11-or-newer'
 "$DTC_CLIENT_PYTHON" -I -S "$DTC_SKILL/scripts/deeptutor_link.py" --help
+"$DTC_CLIENT_PYTHON" -I -S "$DTC_SKILL/scripts/deeptutor_link.py" describe
 ```
 
 本文后续 `CLIENT` 表示上述 Python 加脚本绝对路径，执行时替换为实际命令。
@@ -217,7 +225,12 @@ CLIENT bind --topic TOPIC_ID
 
 `login` 仅在认证开启且需要登录时执行。`API_ORIGIN` 和 `WEB_ORIGIN`
 替换成已确认地址；`TOPIC_ID` 使用所选工作区内 `topics` 的返回值。
-`topics` 可用 `--offset` / `--limit` 分页，不能把一页当完整清单。
+`topics` 可用 `--offset` / `--limit` 分页，每页 1–50 项，offset 从 0 开始；
+按 `next_offset` 继续，不能把一页当完整清单。`context` 每页最多 80 项，
+历史命令每页最多 50 项，`skill-read` 每页最多 24000 字符，`retrieve` 每次最多
+返回 8 条。`CLIENT describe COMMAND` 不联网，可查类型、范围、默认值、最小调用、
+返回结构、成功判据、绑定范围和重试规则。参数错误先修正参数，不反复登录或
+运行 `doctor`。
 若已在默认工作区发现目标，可给 `initialize` 增加 `--topic TOPIC_ID`，
 省去独立绑定。原网站与 API 同 origin 时可省略 `--web-url`。
 
@@ -286,6 +299,12 @@ CLIENT context --limit 1
 `teaching_protocol`。确认 `teaching_protocol.sections` 有 general、runtime_policy、
 loop.system、当前 mode 和 playbook；`operations` 只按 `available=true` 的映射执行。
 HTTP 成功或帮助信息能显示，不能单独证明配置完成。
+
+连接验收与学习验收分别报告。身份、健康检查、主题列表和 `capabilities`
+通过，只证明连接及声明的能力可用；模型已配置不代表检索已成功。只有对
+选定资料实际调用 `retrieve` 成功，才报告该检索路径通过。测评写回要等
+用户真实作答、评估提交成功并重读原状态后才报告通过；配置阶段不为验证
+而伪造学习记录。
 
 如需角色，先列出并让用户明确选择；不要从最新网页会话猜测：
 

@@ -7,6 +7,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 
+from deeptutor_link.assets.skill.scripts.deeptutor_link import parser
 from deeptutor_link.installer import setup_skill
 
 
@@ -56,6 +57,69 @@ def test_distributed_skill_runs_without_source_or_global_cli(standalone):
     result = run("--help")
     assert result.returncode == 0, result.stderr
     assert "stdlib only" in result.stdout
+    assert not config.exists()
+
+
+def test_distributed_skill_checks_numeric_bounds_before_connection(standalone):
+    run, config, _ = standalone
+    for args, bounds in (
+        (("topics", "--limit", "100"), "1..50"),
+        (("context", "--limit", "81"), "1..80"),
+        (("topics", "--offset", "-1"), "at least 0"),
+        (("history-list", "--limit", "51"), "1..50"),
+        (("history-show", "--session", "test", "--limit", "0"), "1..50"),
+        (("skill-read", "test", "--max-chars", "24001"), "1..24000"),
+            (("retrieve", "--objective", "test", "--source", "test",
+              "--query", "test", "--top-k", "9"), "1..8"),
+        (("pdf-image", "--preparation", "test", "--page", "-1",
+          "--output", "test.png"), "at least 0"),
+    ):
+        result = run(*args)
+        assert result.returncode == 2, result.stderr
+        assert bounds in result.stderr
+        assert "private config" not in result.stderr
+    assert "1..50" in run("topics", "--help").stdout
+    assert not config.exists()
+
+
+def test_describe_is_offline_and_matches_executable_contracts(standalone):
+    run, config, _ = standalone
+    index = json.loads(run("describe").stdout)
+    assert index["kind"] == "describe_index"
+    assert {"resume", "context", "retrieve", "assess", "doctor"} <= {
+        row["name"] for row in index["commands"]
+    }
+    assert "call_mastery_tutor" in {row["name"] for row in index["operations"]}
+
+    for command in ("resume", "context", "retrieve", "assess"):
+        value = json.loads(run("describe", command).stdout)
+        assert value["kind"] == "command"
+        assert value["arguments"]
+        assert value["execution"]["command"]
+        assert value["response"] and value["success"]
+        assert "model_dependency" in value
+        assert "retry" in value
+
+    retrieve = json.loads(run("describe", "retrieve").stdout)
+    assert retrieve["arguments"]["top_k"]["maximum"] == 8
+    executable = retrieve["execution"]["command"].removeprefix("CLIENT ")
+    parser().parse_args(executable.split())
+    assert retrieve["model_dependency"].startswith("Query embedding")
+    assert not config.exists()
+
+    operation = json.loads(run("describe", "operation", "search_vector_knowledge").stdout)
+    assert operation["kind"] == "operation"
+    assert operation["arguments"]["top_k"]["maximum"] == 8
+    assert operation["minimal_call"]["input"]["objective_id"] == "OBJECTIVE_ID"
+    assert operation["daily_path"] is True
+    assert "config" not in operation and "credentials" not in operation
+
+    native = json.loads(run("describe", "tool", "call_mastery_tutor").stdout)
+    assert native["writes_host_state"] is True
+    assert native["daily_path"] is False
+    assert "confirm" in native["minimal_call"]["input"]
+    assert "references/native-tools.md" in native["reference"]
+    assert run("describe", "tool", "missing_operation").returncode != 0
     assert not config.exists()
 
 

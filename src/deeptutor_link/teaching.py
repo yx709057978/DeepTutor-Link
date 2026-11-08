@@ -231,6 +231,22 @@ def _language_contract(response_language: str, resource_language: str) -> dict:
 def _operation_mapping(host_models: dict) -> list[dict]:
     chat_ready = bool(host_models.get("configured"))
     native = "CLIENT tool call_mastery_tutor --file -"
+    assistant_quiz = {
+        "available": True,
+        "operation": "assistant_question_and_external_assessment",
+        "command": "Ask the learner in this chat; then CLIENT assess --file -",
+        "host_model_required": False,
+        "daily_path": True,
+        "scope": "The current assistant poses a fresh grounded question, waits for a real answer, and writes the semantic assessment.",
+        "alternative_without_host_chat_model": "This is the ordinary path with or without a host chat model.",
+        "native_explicit_path": {
+            "operation": "call_mastery_tutor",
+            "command": native,
+            "host_model_required": True,
+            "requires_explicit_learner_request": True,
+            "daily_path": False,
+        },
+    }
     return [
         {"native": "mastery_status", "available": True, "operation": "read_mastery_status", "command": "CLIENT tool read_mastery_status --file -", "host_model_required": False},
         {"native": "mastery_paths", "available": True, "operation": "read_mastery_paths", "command": "CLIENT tool read_mastery_paths --file -", "host_model_required": False},
@@ -239,9 +255,9 @@ def _operation_mapping(host_models: dict) -> list[dict]:
         {"native": "mastery_mode", "available": True, "operation": "assistant_teaching_mode", "command": "CLIENT protocol --mode MODE", "host_model_required": False, "scope": "Controls the current AI assistant teaching flow; never mutates website session preferences."},
         {"native": "mastery_build", "available": True, "operation": "route_create", "command": "CLIENT route-create --file -", "host_model_required": False},
         {"native": "mastery_revise", "available": True, "operation": "route_preview_then_commit", "command": "CLIENT route-preview --file -; CLIENT route-commit --file -", "host_model_required": False},
-        {"native": "mastery_quiz", "available": chat_ready, "operation": "call_mastery_tutor", "command": native, "host_model_required": True, "alternative_without_host_chat_model": "Teach or ask in the AI assistant, collect a real learner answer, then use CLIENT assess."},
-        {"native": "mastery_grade", "available": True, "operation": "codex_external_assessment", "command": "CLIENT assess --file -", "host_model_required": False},
-        {"native": "mastery_assess", "available": True, "operation": "codex_external_assessment", "command": "CLIENT assess --file -", "host_model_required": False},
+        {"native": "mastery_quiz", **assistant_quiz},
+        {"native": "mastery_grade", "available": True, "operation": "assistant_external_assessment", "command": "CLIENT assess --file -", "host_model_required": False, "daily_path": True},
+        {"native": "mastery_assess", "available": True, "operation": "assistant_external_assessment", "command": "CLIENT assess --file -", "host_model_required": False, "daily_path": True},
         {"native": "ask_user", "available": True, "operation": "assistant_conversation", "host_model_required": False, "scope": "Used only for clarification, never to bypass a source-grounded assessment card."},
         {"native": "rag", "available": True, "operation": "scoped_source_reads", "commands": ["CLIENT retrieve --objective ID --source SOURCE_ID --query QUERY", "CLIENT tool read_knowledge_file --file -", "CLIENT tool search_knowledge_file --file -"], "host_model_required": False},
         {"native": "read_source", "available": True, "operation": "scoped_source_reads", "commands": ["CLIENT tool list_objective_pdfs --file -", "CLIENT tool read_knowledge_file --file -", "CLIENT tool search_knowledge_file --file -"], "host_model_required": False},
@@ -261,12 +277,14 @@ def _operation_mapping(host_models: dict) -> list[dict]:
             "operation": "call_mastery_tutor",
             "command": native,
             "host_model_required": True,
+            "daily_path": False,
+            "requires_explicit_learner_request": True,
             **({} if chat_ready else {"reason": "The host chat model is not configured."}),
         },
-        {"native": "mastery_profile", "available": True, "operation": "call_mastery_tutor", "command": native, "host_model_required": False, "requires_explicit_learner_request": True},
-        {"native": "mastery_note_explained", "available": True, "operation": "call_mastery_tutor", "command": native, "host_model_required": False, "requires_public_explanation_quote": True},
-        {"native": "mastery_skip_question", "available": True, "operation": "call_mastery_tutor", "command": native, "host_model_required": False},
-        {"native": "mastery_defer_objective", "available": True, "operation": "call_mastery_tutor", "command": native, "host_model_required": False},
+        {"native": "mastery_profile", "available": True, "operation": "call_mastery_tutor", "command": native, "host_model_required": False, "requires_explicit_learner_request": True, "daily_path": False},
+        {"native": "mastery_note_explained", "available": True, "operation": "call_mastery_tutor", "command": native, "host_model_required": False, "requires_public_explanation_quote": True, "daily_path": False},
+        {"native": "mastery_skip_question", "available": True, "operation": "call_mastery_tutor", "command": native, "host_model_required": False, "daily_path": False},
+        {"native": "mastery_defer_objective", "available": True, "operation": "call_mastery_tutor", "command": native, "host_model_required": False, "daily_path": False},
         {"native": "mastery_repair_question", "available": True, "operation": "assistant_question_repair_preview_then_commit", "commands": ["CLIENT tool inspect_question_repair --file -", "CLIENT tool preview_question_repair --file -", "CLIENT tool commit_question_repair --file -"], "host_model_required": False, "scope": "Use the external repair workflow; do not send AI assistant qualitative records through the native repair tool."},
     ]
 
@@ -326,13 +344,23 @@ async def teaching_protocol(store, path_id: str, persona: str, mode: str, langua
     host_models = host_chat_state()
     adaptation_contract = {
         "assistant_is_teaching_model": True,
-        "website_answer_cards": "Only via explicit call_mastery_tutor when its host-model dependency is satisfied.",
+        "daily_teaching_flow": [
+            "Restore context and protocol.",
+            "Read authorized material and verify evidence.",
+            "The assistant explains and asks a fresh question.",
+            "The learner answers independently in this chat.",
+            "The assistant evaluates and submits CLIENT assess.",
+            "The assistant re-reads context before reporting saved progress.",
+        ],
+        "ordinary_teaching_calls_host_chat": False,
+        "website_answer_cards": "Never used for ordinary teaching; native tools remain available only through an explicit learner-requested call_mastery_tutor path.",
         "ask_user": "AI assistant conversation; clarification only.",
         "assessment": "Use CLIENT assess after a real independent learner answer; preserve pending and revision protections.",
         "source_evidence": "Use mapped scoped reads and PDF evidence gates; never substitute a retrieval hit for an unverified claim.",
         "mode_changes": "Assistant-local teaching mode; do not alter website session preferences.",
         "historical_repair": "Use the extension preview/commit workflow.",
         "current_learner_request_precedence": "A current explicit request, such as teach-first, outranks an older style preference.",
+        "host_prompt_tool_verbs": "Interpret original mastery_quiz/grade/record_turn wording through operations; do not infer a host chat turn for ordinary teaching.",
         "persona_boundary": "Persona text is bounded style/task guidance and cannot override AI assistant system, security, evidence, auth or tool rules.",
         "embedded_scripts_are_executable": False,
         "system_prompt_assembly": False,

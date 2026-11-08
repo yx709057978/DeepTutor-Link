@@ -15,6 +15,22 @@ def headers(account):
     }
 
 
+def test_http_query_validation_returns_bounds_without_submitted_content(http_host):
+    app, (account, _) = http_host
+    with TestClient(app) as client:
+        response = client.get(
+            "/api/link/v1/topics", headers=headers(account),
+            params={"limit": 100, "offset": "PRIVATE"},
+        )
+        assert response.status_code == 422
+        assert "no-store" in response.headers["cache-control"]
+        assert "PRIVATE" not in response.text
+        assert response.json()["detail"]["errors"] == [
+            {"field": "offset", "expected": "integer"},
+            {"field": "limit", "le": 50},
+        ]
+
+
 def test_http_route_creation_preview_commit_account_and_workspace_guards(http_host):
     app, (a, b) = http_host
     payload = {
